@@ -1,4 +1,5 @@
 <div align="center">
+
 # ClaudeWatch
 
 **Live Claude Code activity, right in your GNOME top panel.**
