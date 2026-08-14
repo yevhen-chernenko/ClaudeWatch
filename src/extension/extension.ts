@@ -24,8 +24,8 @@ const PERIODIC_REFRESH_SECONDS = 30;
 
 export default class ClaudeWatchExtension extends Extension {
   private _indicator: ClaudeWatchIndicator | null = null;
-  private _sessionsDir: InstanceType<typeof Gio.File> | null = null;
-  private _monitor: InstanceType<typeof Gio.FileMonitor> | null = null;
+  private _sessionsDir: Gio.File | null = null;
+  private _monitor: Gio.FileMonitor | null = null;
   private _monitorId = 0;
   private _periodicRefreshId: number | null = null;
   // Discards a stale _loadSessions() completion from an overlapping refresh
@@ -54,7 +54,7 @@ export default class ClaudeWatchExtension extends Extension {
       Gio.FileMonitorFlags.NONE,
       null,
     );
-    this._monitorId = this._monitor.connect("changed", () => this._refresh());
+    this._monitorId = this._monitor!.connect("changed", () => this._refresh());
 
     this._periodicRefreshId = GLib.timeout_add_seconds(
       GLib.PRIORITY_DEFAULT,
@@ -75,9 +75,9 @@ export default class ClaudeWatchExtension extends Extension {
       Gio.FileQueryInfoFlags.NONE,
       GLib.PRIORITY_DEFAULT,
       null,
-      (dir, result) => {
+      (dir: Gio.File | null, result: Gio.AsyncResult) => {
         if (generation !== this._refreshGeneration) return;
-        let enumerator: InstanceType<typeof Gio.FileEnumerator>;
+        let enumerator: Gio.FileEnumerator;
         try {
           enumerator = dir!.enumerate_children_finish(result);
         } catch {
@@ -93,7 +93,7 @@ export default class ClaudeWatchExtension extends Extension {
   // an empty batch, accumulating every ".json" entry's name.
   private _collectNames(
     generation: number,
-    enumerator: InstanceType<typeof Gio.FileEnumerator>,
+    enumerator: Gio.FileEnumerator,
     namesSoFar: string[],
   ): void {
     enumerator.next_files_async(
@@ -102,7 +102,7 @@ export default class ClaudeWatchExtension extends Extension {
       null,
       (_enumerator, result) => {
         if (generation !== this._refreshGeneration) return;
-        let infos: InstanceType<typeof Gio.FileInfo>[];
+        let infos: Gio.FileInfo[];
         try {
           infos = enumerator.next_files_finish(result);
         } catch {

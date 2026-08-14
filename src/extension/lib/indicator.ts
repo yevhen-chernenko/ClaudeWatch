@@ -282,10 +282,10 @@ class AgentLabel {
   private _compactingTimeoutId: number | null = null;
   private _consultingTimeoutId: number | null = null;
   private _pulseTimeoutId: number | null = null;
-  private _transcriptMonitor: InstanceType<typeof Gio.FileMonitor> | null =
+  private _transcriptMonitor: Gio.FileMonitor | null =
     null;
   private _transcriptMonitorId: number | null = null;
-  private _transcriptWatchFile: InstanceType<typeof Gio.File> | null = null;
+  private _transcriptWatchFile: Gio.File | null = null;
   private _transcriptWatchStartLength = 0;
 
   constructor(
@@ -503,7 +503,7 @@ class AgentLabel {
       return;
     }
     const file = Gio.File.new_for_path(transcriptPath);
-    file.load_contents_async(null, (_file, result) => {
+    file.load_contents_async(null, (_file: Gio.File | null, result: Gio.AsyncResult) => {
       let startLength = 0;
       try {
         const [, contents] = file.load_contents_finish(result);
@@ -530,7 +530,7 @@ class AgentLabel {
   private _checkTranscriptForCompactOutcome(): void {
     const file = this._transcriptWatchFile;
     if (!file || this._uiState !== "compacting") return;
-    file.load_contents_async(null, (_file, result) => {
+    file.load_contents_async(null, (_file: Gio.File | null, result: Gio.AsyncResult) => {
       if (this._uiState !== "compacting" || this._transcriptWatchFile !== file)
         return;
       let contents: string;

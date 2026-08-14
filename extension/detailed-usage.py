@@ -158,17 +158,25 @@ def render_optional_window_row(label, window, color):
     return render_row(label, percent, f"{percent}%", color, detail)
 
 
-def render_extra_usage_row(extra_usage):
+def render_usage_row(extra_usage, label="Extra usage"):
     if not extra_usage or not extra_usage.get("is_enabled"):
         return None
     used = extra_usage.get("used_credits")
     limit = extra_usage.get("monthly_limit")
-    detail = f"${used:.2f} / ${limit:.2f}" if used is not None and limit is not None else ""
+    if used is not None:
+        used = used / 100
+    if limit is not None:
+        limit = limit / 100
+    dollar_detail = f"${used:.2f} / ${limit:.2f}" if used is not None and limit is not None else ""
+    resets_at = extra_usage.get("resets_at")
+    reset_detail = f"resets {format_reset(resets_at)}" if resets_at else ""
+    detail = "  ".join(d for d in [dollar_detail, reset_detail] if d)
     percent = extra_usage.get("utilization")
     if percent is None:
-        return f"{fg(COLOR_LABEL, 'Extra usage'.ljust(LABEL_WIDTH))} Enabled {detail}".rstrip()
+        line = f"{fg(COLOR_LABEL, label.ljust(LABEL_WIDTH))} Enabled"
+        return (f"{line} {detail}" if detail else line)
     percent = round(percent)
-    return render_row("Extra usage", percent, f"{percent}%", COLOR_EXTRA, detail)
+    return render_row(label, percent, f"{percent}%", COLOR_EXTRA, detail)
 
 
 def fg(hex_color, text, bold=False):
@@ -221,6 +229,17 @@ def separator():
     out(fg(COLOR_BANNER, " " * SEPARATOR_WIDTH))
 
 
+def is_enterprise(data):
+    extra = (data or {}).get("extra_usage") or {}
+    if not extra.get("is_enabled"):
+        return False
+    five_hour = (data or {}).get("five_hour")
+    seven_day = (data or {}).get("seven_day")
+    return (not five_hour or five_hour.get("utilization") is None) and (
+        not seven_day or seven_day.get("utilization") is None
+    )
+
+
 def render(data, error, remaining):
     _frame.clear()
     for _ in range(PADDING_TOP):
@@ -230,40 +249,46 @@ def render(data, error, remaining):
         out(fg(COLOR_BANNER, line))
     out()
 
-    five_hour = data.get("five_hour") if data else None
-    percent, detail = window_status(five_hour)
-    if percent is None:
-        out(f"{fg(COLOR_LABEL, '5h window'.ljust(LABEL_WIDTH))} {detail}")
+    if is_enterprise(data):
+        usage_row = render_usage_row(data.get("extra_usage"), label="Usage")
+        if usage_row:
+            out(usage_row)
+            separator()
     else:
-        out(render_row("5h window", percent, f"{percent}%", COLOR_FIVE_HOUR, detail))
-    separator()
-
-    seven_day = data.get("seven_day") if data else None
-    percent, detail = window_status(seven_day)
-    if percent is None:
-        out(f"{fg(COLOR_LABEL, '7d window'.ljust(LABEL_WIDTH))} {detail}")
-    else:
-        out(render_row("7d window", percent, f"{percent}%", COLOR_SEVEN_DAY, detail))
-    separator()
-
-    opus_row = render_optional_window_row(
-        "7d opus", data.get("seven_day_opus") if data else None, COLOR_OPUS
-    )
-    if opus_row:
-        out(opus_row)
+        five_hour = data.get("five_hour") if data else None
+        percent, detail = window_status(five_hour)
+        if percent is None:
+            out(f"{fg(COLOR_LABEL, '5h window'.ljust(LABEL_WIDTH))} {detail}")
+        else:
+            out(render_row("5h window", percent, f"{percent}%", COLOR_FIVE_HOUR, detail))
         separator()
 
-    sonnet_row = render_optional_window_row(
-        "7d sonnet", data.get("seven_day_sonnet") if data else None, COLOR_SONNET
-    )
-    if sonnet_row:
-        out(sonnet_row)
+        seven_day = data.get("seven_day") if data else None
+        percent, detail = window_status(seven_day)
+        if percent is None:
+            out(f"{fg(COLOR_LABEL, '7d window'.ljust(LABEL_WIDTH))} {detail}")
+        else:
+            out(render_row("7d window", percent, f"{percent}%", COLOR_SEVEN_DAY, detail))
         separator()
 
-    extra_row = render_extra_usage_row(data.get("extra_usage") if data else None)
-    if extra_row:
-        out(extra_row)
-        separator()
+        opus_row = render_optional_window_row(
+            "7d opus", data.get("seven_day_opus") if data else None, COLOR_OPUS
+        )
+        if opus_row:
+            out(opus_row)
+            separator()
+
+        sonnet_row = render_optional_window_row(
+            "7d sonnet", data.get("seven_day_sonnet") if data else None, COLOR_SONNET
+        )
+        if sonnet_row:
+            out(sonnet_row)
+            separator()
+
+        extra_row = render_usage_row(data.get("extra_usage") if data else None)
+        if extra_row:
+            out(extra_row)
+            separator()
 
     elapsed = REFRESH_SECONDS - remaining
     refresh_percent = 100 * elapsed / REFRESH_SECONDS
