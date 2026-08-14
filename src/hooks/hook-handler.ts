@@ -136,6 +136,7 @@ const status = resolveStatus(
   input.tool_name,
   tracking.pendingCount,
   tracking.pendingBash,
+  previousStatus,
 );
 
 if (status) {

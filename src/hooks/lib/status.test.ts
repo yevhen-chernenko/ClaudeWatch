@@ -73,6 +73,33 @@ describe("resolveStatus", () => {
     expect(resolveStatus("SubagentStop", undefined)).toBe("running");
   });
 
+  it("maps SubagentStop to done when it clears the last pending subagent after a Stop", () => {
+    // Fast path: Stop already fired (waiting_background) and the last subagent
+    // now reports back — session is fully done, not "running" with no closer.
+    expect(
+      resolveStatus("SubagentStop", undefined, undefined, undefined, 0, false, "waiting_background"),
+    ).toBe("done");
+  });
+
+  it("keeps SubagentStop as running when more subagents are still pending after a Stop", () => {
+    expect(
+      resolveStatus("SubagentStop", undefined, undefined, undefined, 1, false, "waiting_background"),
+    ).toBe("running");
+  });
+
+  it("keeps SubagentStop as running when a pending bash job remains even after the last subagent", () => {
+    expect(
+      resolveStatus("SubagentStop", undefined, undefined, undefined, 0, true, "waiting_background"),
+    ).toBe("running");
+  });
+
+  it("keeps SubagentStop as running when the main turn has not yet stopped", () => {
+    // SubagentStop during a normal running turn — the turn is still ongoing.
+    expect(
+      resolveStatus("SubagentStop", undefined, undefined, undefined, 0, false, "running"),
+    ).toBe("running");
+  });
+
   it("maps Stop to done when nothing is pending in the background", () => {
     expect(resolveStatus("Stop", undefined, undefined, undefined, 0)).toBe(
       "done",
@@ -208,6 +235,26 @@ describe("updateBackgroundTracking", () => {
         current,
       ),
     ).toEqual({ pendingCount: 0, pendingBash: false, agentType: undefined });
+  });
+
+  it("resets pendingCount on UserPromptSubmit after waiting_background (subagents died without SubagentStop)", () => {
+    // Without this reset, every subsequent turn's Stop would also see
+    // pendingCount=3 and produce waiting_background indefinitely.
+    expect(
+      updateBackgroundTracking("UserPromptSubmit", undefined, false, "waiting_background", {
+        pendingCount: 3,
+        pendingBash: false,
+      }),
+    ).toEqual({ pendingCount: 0, pendingBash: false, agentType: undefined });
+  });
+
+  it("does not reset pendingCount on UserPromptSubmit when the previous status was not waiting_background", () => {
+    expect(
+      updateBackgroundTracking("UserPromptSubmit", undefined, false, "running", {
+        pendingCount: 3,
+        pendingBash: false,
+      }),
+    ).toEqual({ pendingCount: 3, pendingBash: false, agentType: undefined });
   });
 
   it("clears pendingBash on the first event after a plain done Stop too", () => {

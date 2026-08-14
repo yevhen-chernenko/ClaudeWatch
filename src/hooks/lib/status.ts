@@ -71,6 +71,7 @@ export function resolveStatus(
   toolName?: string,
   pendingBackgroundCount = 0,
   pendingBash = false,
+  previousStatus?: SessionStatus,
 ): SessionStatus | undefined {
   if (hookEventName === "PreCompact") {
     return trigger === "manual" ? "compacting" : undefined;
@@ -85,6 +86,21 @@ export function resolveStatus(
   }
   if (hookEventName === "Stop") {
     return pendingBackgroundCount > 0 || pendingBash ? "waiting_background" : "done";
+  }
+  // Fast path out of consulting: when the last pending subagent finishes and
+  // the main turn was already stopped (waiting_background), the session is
+  // now fully done rather than back to "running" with no subsequent Stop to
+  // close it. pendingBackgroundCount is the post-decrement value from
+  // updateBackgroundTracking, so 0 here means this was the last one.
+  if (hookEventName === "SubagentStop") {
+    if (
+      pendingBackgroundCount === 0 &&
+      !pendingBash &&
+      previousStatus === "waiting_background"
+    ) {
+      return "done";
+    }
+    return "running";
   }
   if (!hookEventName) return undefined;
   return STATUS_BY_EVENT[hookEventName];
@@ -133,6 +149,13 @@ export function updateBackgroundTracking(
     nextAgentType = agentType;
   } else if (hookEventName === "SubagentStop") {
     pendingCount = Math.max(0, pendingCount - 1);
+  } else if (hookEventName === "UserPromptSubmit" && previousStatus === "waiting_background") {
+    // A new user turn started while we were consulting (subagents from the
+    // previous turn never fired SubagentStop — killed when the user pressed
+    // Stop). Reset so the new turn's Stop produces "done" rather than looping
+    // back to "waiting_background" indefinitely. Mirrors the pendingBash reset
+    // below which already clears on any event after waiting_background.
+    pendingCount = 0;
   }
 
   let pendingBash = current.pendingBash;
