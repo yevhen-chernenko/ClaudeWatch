@@ -24,7 +24,7 @@
 - [What it does](#what-it-does)
 - [Panel states](#panel-states)
 - [Claude Usage (the terminal rate-limit view)](#claude-usage-the-terminal-rate-limit-view)
-- [Status: alpha, not published](#status-alpha-not-published)
+- [Status: alpha, pending EGO review](#status-alpha-pending-ego-review)
 - [Installation](#installation)
 - [Development](#development)
 - [Docs](#docs)
@@ -116,14 +116,16 @@ quota. Opt-in only: it does nothing until you point it at a token yourself
 <img src="docs/assets/screenshots/usage-terminal.png" width="520" alt="The Show usage terminal view, with the ClaudeWatch ASCII banner at the top">
 </p>
 
-## Status: alpha, not published
+## Status: alpha, pending EGO review
 
-**ClaudeWatch is alpha software and isn't published anywhere** — not on
-GNOME Extensions (EGO), no installer, no release tarball. There's also no
-setup wizard yet (see [docs/ROADMAP.md](docs/ROADMAP.md)); the
-[Installation](#installation) section below is what that wizard would
-eventually automate, done entirely by hand for now. If you want to run it
-today, you need to clone this repo and build it yourself.
+**ClaudeWatch is alpha software.** It's been submitted to
+[GNOME Extensions (EGO)](https://extensions.gnome.org/) and is awaiting
+manual review — not yet installable from there. No installer or release
+tarball either way. There's also no setup wizard yet (see
+[docs/ROADMAP.md](docs/ROADMAP.md)); the [Installation](#installation)
+section below is what that wizard would eventually automate, done entirely
+by hand for now. If you want to run it today, you need to clone this repo
+and build it yourself.
 
 ## Installation
 
