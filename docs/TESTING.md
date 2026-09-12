@@ -273,12 +273,13 @@ Click the indicator to open the menu.
     [EXTENSION.md](EXTENSION.md#setting-up-the-claude-usage-token) for how
     to create `~/.config/claudewatch/token` (normally a symlink to
     `~/.claude/.credentials.json`). Click it and confirm a terminal window
-    opens showing "Claude usage — detailed view", the 5h/7d utilization and
-    reset times (both a relative and absolute reset time), and a progress
-    bar counting up to "next refresh in 60s" that ticks down once per second
-    and triggers a fresh fetch when it completes — leave it running past one
-    full cycle to confirm the auto-refresh actually happens, not just the
-    countdown. If the account has per-model 7-day data or extra-usage
+    titled "ClaudeWatch" opens showing the ASCII banner, the 5h/7d
+    utilization and reset times (both a relative and absolute reset time),
+    and a progress bar counting up to "next refresh in 120s" that ticks down
+    once per second and triggers a fresh fetch when it completes — leave it
+    running past one full cycle to confirm the auto-refresh actually
+    happens, not just the countdown. If the account has per-model 7-day
+    data or extra-usage
     (pay-as-you-go overage) enabled, confirm the corresponding "7d opus" /
     "7d sonnet" / "extra usage" rows appear too — and that they're absent
     (not shown as "unavailable") for an account without them, since those

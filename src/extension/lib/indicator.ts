@@ -217,29 +217,37 @@ function isStale(state: SessionState): boolean {
 // display manager / login session, not from whatever terminal you happen to
 // run `npm run build` in, so a real env var set there would never actually
 // reach it. A repo-root `.env` (gitignored, same as any other local-only
-// config) sidesteps that entirely. Read synchronously since this only ever
-// runs once, at ClaudeWatchIndicator construction — GNOME Shell's own
-// enable() is already synchronous by the time this constructor runs, so
-// there's no async flow here to fit into.
-function readDevModeFlag(extensionPath: string): boolean {
+// config) sidesteps that entirely. Async even though this only ever runs
+// once, at ClaudeWatchIndicator construction — no sync file I/O on the shell
+// main loop, full stop, matching every other file read in this extension.
+// The dev preview section simply appears a tick after the rest of the menu
+// instead of atomically with it, which nothing else here depends on.
+function readDevModeFlagAsync(
+  extensionPath: string,
+  callback: (enabled: boolean) => void,
+): void {
   const path = GLib.build_filenamev([extensionPath, ".env"]);
-  let contents: string;
-  try {
-    const [, bytes] = Gio.File.new_for_path(path).load_contents(null);
-    contents = new TextDecoder().decode(bytes);
-  } catch {
-    return false; // No .env shipped with this build — the common case.
-  }
-  for (const line of contents.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) continue;
-    if (trimmed.slice(0, eq).trim() === "CLAUDEWATCH_DEV") {
-      return trimmed.slice(eq + 1).trim() === "1";
+  Gio.File.new_for_path(path).load_contents_async(null, (file, result) => {
+    let contents: string;
+    try {
+      const [, bytes] = file!.load_contents_finish(result);
+      contents = new TextDecoder().decode(bytes);
+    } catch {
+      callback(false); // No .env shipped with this build — the common case.
+      return;
     }
-  }
-  return false;
+    for (const line of contents.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq === -1) continue;
+      if (trimmed.slice(0, eq).trim() === "CLAUDEWATCH_DEV") {
+        callback(trimmed.slice(eq + 1).trim() === "1");
+        return;
+      }
+    }
+    callback(false);
+  });
 }
 
 // Picks a name for a newly-seen session, avoiding names already in use by
@@ -782,11 +790,12 @@ export class ClaudeWatchIndicator {
     // Visual QA only — lets every panel look (including ones that normally
     // need a real live session, like "complete"'s green flash) be pulled up
     // on demand for screenshots, without a real hook event or session file.
-    // Gated on readDevModeFlag() rather than shipped unconditionally so it
-    // can never appear for a real user: nothing here reads real session
+    // Gated on readDevModeFlagAsync() rather than shipped unconditionally so
+    // it can never appear for a real user: nothing here reads real session
     // state, and _setPreviewState()/_clearPreview() only ever touch the
     // dev-only _previewLabel/_previewActor fields, never `_agents`/`_order`.
-    if (readDevModeFlag(extensionPath)) {
+    readDevModeFlagAsync(extensionPath, (enabled) => {
+      if (!enabled) return;
       this._menu.addMenuItem(
         new PopupMenu.PopupSeparatorMenuItem("Dev: preview state"),
       );
@@ -808,7 +817,7 @@ export class ClaudeWatchIndicator {
         item.connect("activate", () => this._setPreviewState(kind));
         this._menu.addMenuItem(item);
       }
-    }
+    });
   }
 
   // Called by extension.js with every session's freshly-parsed state-file

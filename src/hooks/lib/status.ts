@@ -116,9 +116,10 @@ export interface BackgroundTracking {
 // so a running "started but not yet stopped" count, carried in the session
 // state file across hook invocations, tells resolveStatus's Stop branch
 // above whether the turn that just ended left a subagent still going.
-// agentType is carried along purely for display (see indicator.ts's
-// "consulting" text) — last-started wins, and is not cleared on
-// SubagentStop, since it's only ever read while pendingCount > 0.
+// agentType (last-started wins, not cleared on SubagentStop) is round-tripped
+// into the state file but no longer read by the extension, which shows a
+// fixed generic "consulting" label regardless — see ARCHITECTURE.md's
+// "Backgrounded subagent work" section.
 //
 // pendingBash covers the case SubagentStart/SubagentStop can't: a plain
 // `Bash` call with `run_in_background: true` and no subagent involved.

@@ -128,7 +128,7 @@ dist/                 # build output (gitignored)
   asset like `metadata.json`, not TypeScript) — the stdlib-only script
   "Show usage" launches; a self-contained account-level rate-limit check
   (token resolution, the `/api/oauth/usage` request, and formatting all
-  live in this one script) on its own 60-second refresh loop. This is the
+  live in this one script) on its own 120-second refresh loop. This is the
   extension's only usage source — there's no TypeScript-side equivalent.
 - `lib/indicator.ts` — two classes: `AgentLabel` (one per live session —
   owns its panel label widget and the pulse/notify/compacting-watch state
@@ -160,8 +160,9 @@ npm run build       # compiles src/ -> dist/, copies metadata.json + icons/
 npm run typecheck   # type-check only, no output — fast loop while editing
 ```
 
-`dist/` is what you point a symlink or `gnome-extensions pack` at; it's
-gitignored and always regenerated from `src/`, never hand-edited.
+`dist/` is what you point a symlink at for local dev, or zip for EGO
+submission (`npm run pack`, below); it's gitignored and always regenerated
+from `src/`, never hand-edited.
 
 For local dev, symlink `dist/extension` (not `extension/` — that's static
 assets only) into GNOME Shell's extensions directory under the UUID from
@@ -172,6 +173,40 @@ log out/in) so it picks up the new symlink:
 ln -s "$PWD/dist/extension" ~/.local/share/gnome-shell/extensions/claudewatch@yevhen-chernenko.github.io
 gnome-extensions enable claudewatch@yevhen-chernenko.github.io
 ```
+
+### Packaging for EGO
+
+```sh
+npm run pack   # builds, then zips dist/extension -> <uuid>.shell-extension.zip
+```
+
+This does _not_ shell out to `gnome-extensions pack` — that tool flattens
+every `--extra-source` file into the zip root regardless of its original
+path, which loses the `lib/` subdirectory `extension.js` imports from at
+runtime. `scripts/pack-extension.mjs` zips `dist/extension` directly instead,
+preserving its layout, and excludes devtime-only output (`.d.ts`, `.js.map`,
+the dev-mode `.env` flag) that has no reason to ship. Verify the result with
+`unzip -l <uuid>.shell-extension.zip` before uploading — `lib/*.js` must be
+present under `lib/`, not flattened to the top level.
+
+Before uploading, also run [Shexli](https://pypi.org/project/shexli/) (the
+static analyzer EGO's own submission page links) against the packed zip:
+
+```sh
+python3 -m venv .venv && . .venv/bin/activate
+pip install -U shexli
+pip install "tree-sitter==0.25.0"   # see note below
+shexli <uuid>.shell-extension.zip
+```
+
+The middle pin is required, not optional: `pip install -U shexli` alone
+pulls the latest `tree-sitter` core (0.26.0 as of this writing) against a
+`tree-sitter-javascript` grammar build that only declares `>=0.25.0`, and
+that specific combination segfaults on import (an ABI mismatch between the
+two, not anything about this extension) rather than producing findings.
+Pinning `tree-sitter` back to `0.25.0` — matching the grammar package's own
+version — fixes it. See [SECURITY.md](SECURITY.md#hardening-checklist-track-status-as-phases-land)
+for the last run's findings and disposition.
 
 ## Imports
 
@@ -246,7 +281,7 @@ bottom:
 - **"Claude Usage" section** — a labeled `PopupSeparatorMenuItem` heading a
   single button:
   - **Show usage** (`_showUsageItem`, `PopupMenuItem`) — opens a terminal
-    running `extension/detailed-usage.py`, an auto-refreshing (every 60s,
+    running `extension/detailed-usage.py`, an auto-refreshing (every 120s,
     with a progress bar to the next refresh) view of the account-level 5h/7d
     rate-limit windows. This is the only usage source in the extension —
     there's no inline rate-limit row in the popup menu itself. The script
@@ -333,4 +368,4 @@ Then click "Show usage" in the panel menu — it opens a terminal running
 request, all resolve to an inline error/status line in that terminal
 instead of a silent failure. A successful check shows the current 5h/7d
 utilization and reset times, plus per-model 7d and extra-usage rows when
-the account has data for them, auto-refreshing every 60s.
+the account has data for them, auto-refreshing every 120s.

@@ -20,3 +20,6 @@ dist/
 
 # Local env
 .env
+
+# EGO submission package (npm run pack)
+*.shell-extension.zip

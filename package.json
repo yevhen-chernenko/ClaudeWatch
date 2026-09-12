@@ -5,13 +5,14 @@
     "node": ">=20.12.0"
   },
   "scripts": {
-    "build": "npm run build:extension && npm run build:hooks && npm run copy:assets",
+    "build": "npm run clean && npm run build:extension && npm run build:hooks && npm run copy:assets",
     "build:extension": "tsc -p tsconfig.extension.json",
     "build:hooks": "tsc -p tsconfig.hooks.json",
     "copy:assets": "node scripts/copy-assets.mjs",
+    "pack": "npm run build && node scripts/pack-extension.mjs",
     "typecheck": "tsc -p tsconfig.extension.json --noEmit && tsc -p tsconfig.hooks.json --noEmit && tsc -p tsconfig.vitest.json --noEmit",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist *.tsbuildinfo"
   },
   "devDependencies": {
     "@girs/gjs": "4.1.0",

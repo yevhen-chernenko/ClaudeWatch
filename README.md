@@ -110,7 +110,7 @@ Click **Show usage** in the popup menu for a live, auto-refreshing terminal
 view of your 5-hour and 7-day Claude usage windows — it hits the dedicated
 account-status endpoint, not a Messages completion, so checking costs no API
 quota. Opt-in only: it does nothing until you point it at a token yourself
-(see [Step 5](#5-optional--the-claude-usage-rate-limit-check) below).
+(see [SETUP.md, Step 5](docs/SETUP.md#step-5--optional-the-claude-usage-rate-limit-check)).
 
 <p align="center">
 <img src="docs/assets/screenshots/usage-terminal.png" width="520" alt="The Show usage terminal view, with the ClaudeWatch ASCII banner at the top">
@@ -133,29 +133,18 @@ today, you need to clone this repo and build it yourself.
   in [`extension/metadata.json`](extension/metadata.json).
 - **Claude Code**, installed and run at least once interactively (a plain
   `claude` login, not just `claude setup-token`). This is what creates
-  `~/.claude/settings.json` (Step 3 writes into it) and, if you want the
-  optional Claude Usage row (Step 5), `~/.claude/.credentials.json`.
+  `~/.claude/settings.json`, which the setup below writes into.
 - **Node.js on `PATH`** — the hook handler is a `node` script. Claude Code
   already requires Node to run at all, so if `claude` works, this is already
   satisfied.
 
-### 1. Clone and build
+### Quick start
 
 ```sh
 git clone git@github.com:yevhen-chernenko/claudewatch.git
 cd claudewatch
 npm install
 npm run build
-```
-
-This compiles `src/` into `dist/` (gitignored). Two things come out of it
-that the next two steps depend on: `dist/extension/` (the GNOME extension
-itself) and `dist/hooks/hook-handler.js` (what Claude Code will invoke — note
-its absolute path on your machine, Step 3 needs it verbatim).
-
-### 2. Install the GNOME extension
-
-```sh
 ln -s "$PWD/dist/extension" ~/.local/share/gnome-shell/extensions/claudewatch@yevhen-chernenko.github.io
 gnome-extensions enable claudewatch@yevhen-chernenko.github.io
 ```
@@ -165,248 +154,12 @@ Wayland: log out and back in). You should see a single "Agents are
 recovering ☕" label appear in the top panel — that's the extension running
 with zero live sessions, not a sign anything is broken.
 
-### 3. Wire up Claude Code's hooks (the Claude-side setup)
-
-This is the step with no automation yet, and the one most likely to be
-skipped silently: without it, the panel sits on "Agents are recovering ☕"
-forever, no matter what you do in Claude Code, because Claude Code never
-tells the hook handler anything happened.
-
-Open `~/.claude/settings.json` (create it if it doesn't exist) and merge
-these entries into its top-level `hooks` object — **merge, don't overwrite**;
-if you already have other hooks configured, add to the arrays rather than
-replacing them. Replace `/absolute/path/to/claudewatch` with the path from
-Step 1:
-
-<details>
-<summary><strong>Full <code>hooks</code> block to merge into <code>~/.claude/settings.json</code></strong></summary>
-
-```jsonc
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "PostCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "PermissionRequest": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": [
-              "/absolute/path/to/claudewatch/dist/hooks/hook-handler.js",
-            ],
-            "async": true,
-          },
-        ],
-      },
-    ],
-  },
-}
-```
-
-</details>
-
-That's the complete event set the hook handler understands — omitting one
-just means that transition never shows up in the panel. A few aren't
-independent, though:
-
-- **`PreCompact`/`PostCompact`** install as a pair. Skip `PreCompact` alone
-  and a manual `/compact` shows "training" but never leaves it except via a
-  slower fallback; skip both together if you just don't care about seeing
-  that state at all.
-- **`SubagentStart`/`SubagentStop`** install as a pair too. Skipping them
-  means a session that backgrounds a subagent call and stops its visible
-  turn while the subagent is still working flashes "done" early instead of
-  showing "consulting".
-- **`SessionEnd`** matters most of all to not skip — without it, session
-  state files are only cleaned up by slower fallback GC instead of
-  immediately.
-
-No restart of Claude Code is needed — hooks are read per-invocation, so the
-very next prompt you send in any session picks this up.
-
-### 4. Verify
-
-Fastest check, no real Claude Code session needed:
-
-```sh
-echo '{"hook_event_name":"UserPromptSubmit","session_id":"smoke-test"}' \
-  | node /absolute/path/to/claudewatch/dist/hooks/hook-handler.js
-```
-
-The panel should switch to "Agent `<name>` is working 🕶️" within about a
-second. Clean up with:
-
-```sh
-echo '{"hook_event_name":"SessionEnd","session_id":"smoke-test"}' \
-  | node /absolute/path/to/claudewatch/dist/hooks/hook-handler.js
-```
-
-Then confirm it end-to-end: open a real Claude Code session — CLI, VS Code
-extension, or Desktop app's Code tab all work identically — and send a
-prompt. If the panel never moves, see
-[SETUP.md's Troubleshooting](docs/SETUP.md#troubleshooting).
-
-### 5. Optional — the Claude Usage rate-limit check
-
-Skip this if you don't care about the 5h/7d usage percentages — nothing else
-in the extension depends on it. It's opt-in by design: the extension never
-creates this file itself.
-
-```sh
-mkdir -p ~/.config/claudewatch
-ln -s ~/.claude/.credentials.json ~/.config/claudewatch/token
-```
-
-Then click "Show usage" in the popup menu. It additionally needs **Python
-3** (stdlib only) and **a terminal emulator on `PATH`** (`gnome-terminal`/GNOME
-Console already satisfy this on stock GNOME). Full details on why the token
-must be this specific file, and what each error message means, are in
-[EXTENSION.md](docs/EXTENSION.md#setting-up-the-claude-usage-token).
-
----
-
-For the fully detailed, start-to-finish walkthrough — including
-troubleshooting for every step above — see
-[docs/SETUP.md](docs/SETUP.md).
+The panel stays on that label until Claude Code's hooks are wired up to the
+built `dist/hooks/hook-handler.js` — a manual merge into
+`~/.claude/settings.json`, since there's no installer yet. That step (plus
+verification and the optional Claude Usage rate-limit check) is genuinely
+easy to skip silently, so it gets the full walkthrough in
+**[docs/SETUP.md](docs/SETUP.md)** rather than a repeat of it here.
 
 ## Development
 

@@ -48,7 +48,7 @@ network calls of its own — there is no network-capable import anywhere
 under `src/extension/`. The actual `GET` to the dedicated `/api/oauth/usage`
 status endpoint (the same one the popular "Claude Code Usage Tracker" VS
 Code extension uses, confirmed by reading its bundled source) happens
-entirely inside that spawned, out-of-process script, on its own 60-second
+entirely inside that spawned, out-of-process script, on its own 120-second
 refresh loop. It's not a Messages completion — no model gets invoked, so
 checking usage costs no API quota.
 
@@ -74,7 +74,7 @@ command — and the spawned process needs no elevated privileges.
   of one request.
 - **User-triggered only**: clicking "Show usage" is the only way the
   terminal — and therefore the network request — ever launches. There is no
-  interval timer and no menu-open trigger; the script's own 60-second loop
+  interval timer and no menu-open trigger; the script's own 120-second loop
   only re-checks usage for a terminal the user already opened.
 - **Single fixed endpoint**: only ever talks to
   `https://api.anthropic.com/api/oauth/usage`. No user-configurable host, so
@@ -243,6 +243,50 @@ Mitigations, concrete and ongoing (not a one-time pass before submission):
 - [x] SPDX GPL-2.0-or-later header on every source file — verified across
       `src/extension/extension.ts`, every file under `src/extension/lib/`, and
       `src/hooks/hook-handler.ts`.
-- [ ] Self-review pass against the AI-generated-code rejection criteria
-      above, done as its own pass before submission
-- [ ] `gnome-extensions-tool` / EGO's own linting (if available) run clean
+- [x] Self-review pass against the AI-generated-code rejection criteria
+      above — no narration-style comments under `src/`/`extension/`
+      (grepped for the common tells), every `try/catch` wraps a call that
+      can actually throw (async `Gio` I/O, subprocess spawn, JSON parse),
+      `noUnusedLocals`/`noUnusedParameters` on in every tsconfig and passing.
+- [x] `gnome-extensions pack` itself is not used for the submission zip (see
+      [EXTENSION.md](EXTENSION.md#packaging-for-ego) — it silently flattens
+      `lib/` into the zip root and would have shipped a broken package);
+      `npm run pack` builds the zip directly instead and its output has been
+      verified file-by-file against `dist/extension`.
+- [x] Ran [Shexli](https://gjs.guide/extensions/review-guidelines/review-guidelines.html)
+      (the static analyzer EGO's own submission page recommends) against the
+      packed zip. Findings and disposition:
+      - **Fixed**: sync file I/O in `readDevModeFlag()` (`lib/indicator.ts`)
+        — `Gio.File.load_contents(null)` instead of the async pair. This
+        contradicted this checklist's own "no sync I/O" line above; the
+        `_sync(` grep that verified it missed this because GJS's sync/async
+        pair for this call is `load_contents()`/`load_contents_async()`, not
+        a `_sync`-suffixed name. Converted to
+        `load_contents_async()`/`readDevModeFlagAsync()`; the gated dev-only
+        menu section now appears a tick after the rest of the popup menu
+        instead of atomically with it, which nothing depends on.
+      - **False positive** (`EGO-P-003`, GSettings schema): flagged because
+        the extension calls `new Gio.Settings({ schema_id: "org.gnome.shell" })`
+        (the "Exit" action, to remove the uuid from `enabled-extensions` —
+        see [ARCHITECTURE.md](ARCHITECTURE.md#extension-internals)). That's
+        GNOME Shell's own built-in schema, already installed system-wide —
+        not a custom `org.gnome.shell.extensions.<uuid>` schema this package
+        would need to ship a `.gschema.xml` for. The analyzer can't tell
+        "uses an existing system schema" apart from "uses its own and forgot
+        to ship it"; worth restating in the EGO submission notes if a human
+        reviewer raises the same question.
+      - **Not changed** (`EGO-L-005`, null owned refs after destroy):
+        `AgentLabel.actor` (and `ClaudeWatchIndicator`'s menu-item fields)
+        aren't nulled in `destroy()`. The guideline exists for a
+        long-lived object that could later be accessed again after its
+        owned widget is destroyed — that doesn't apply here: the owning
+        `AgentLabel`/`ClaudeWatchIndicator` instance itself is dropped from
+        its parent's map (`_agents`/`extension.ts`'s `_indicator`) in the
+        same call that destroys it, so nothing can reach `.actor` (or any
+        menu item) afterward — the whole object is GC-eligible at that
+        point, not just the widget. Making `actor` nullable would mean
+        loosening its type from `St.Label` to `St.Label | null` and adding a
+        null-check or assertion at each of its ~15 use sites for a scenario
+        that can't occur, which is the kind of defensive padding this
+        project's own review discipline (see "AI-generated-code rejection
+        risk" above) argues against adding.
