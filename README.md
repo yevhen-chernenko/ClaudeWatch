@@ -6,8 +6,8 @@
 
 [![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
 ![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)
-![GNOME Shell 46](https://img.shields.io/badge/GNOME%20Shell-46-4A86CF.svg)
-![Tested on Ubuntu 24.04](https://img.shields.io/badge/tested%20on-Ubuntu%2024.04-E95420.svg)
+![GNOME Shell 46-50](https://img.shields.io/badge/GNOME%20Shell-46--50-4A86CF.svg)
+![Tested on Ubuntu 24.04 / 26.04](https://img.shields.io/badge/tested%20on-Ubuntu%2024.04%20%2F%2026.04-E95420.svg)
 
 </div>
 
@@ -84,9 +84,9 @@ Desktop's Remote/SSH/Cloud environments and cloud-run background agents fire
 their hook commands on that other host, so no local state file is ever
 written here.
 
-Verified directly on all three locally-executing surfaces — **only on
-Ubuntu 24.04** (24.04.4). Other GNOME 46 distros likely work but haven't been
-tested.
+Verified directly on all three locally-executing surfaces — **on
+Ubuntu 24.04** (24.04.4) and **Ubuntu 26.04** (26.04.1, GNOME Shell 50). Other
+GNOME 46-50 distros likely work but haven't been tested.
 
 ### What it looks like
 
@@ -131,7 +131,7 @@ and build it yourself.
 
 ### Prerequisites
 
-- **GNOME Shell 46** (`gnome-shell --version`) — the UUID's `shell-version`
+- **GNOME Shell 46-50** (`gnome-shell --version`) — the UUID's `shell-version`
   in [`extension/metadata.json`](extension/metadata.json).
 - **Claude Code**, installed and run at least once interactively (a plain
   `claude` login, not just `claude setup-token`). This is what creates

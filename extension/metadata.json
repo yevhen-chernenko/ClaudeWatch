@@ -2,6 +2,6 @@
   "uuid": "claudewatch@yevhen-chernenko.github.io",
   "name": "ClaudeWatch for GNOME",
   "description": "Live Claude Code activity in the top panel.",
-  "shell-version": ["46"],
+  "shell-version": ["46", "50"],
   "url": "https://github.com/yevhen-chernenko/claudewatch"
 }

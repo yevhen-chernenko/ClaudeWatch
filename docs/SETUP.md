@@ -8,7 +8,7 @@ nothing here happens automatically just from enabling the GNOME extension.
 
 ## Prerequisites
 
-- **GNOME Shell 46** (`gnome-shell --version`) — the UUID's `shell-version`
+- **GNOME Shell 46-50** (`gnome-shell --version`) — the UUID's `shell-version`
   in `extension/metadata.json`.
 - **Claude Code**, installed and run at least once interactively (a plain
   `claude` login, not just `claude setup-token`). This is what creates
