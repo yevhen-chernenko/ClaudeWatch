@@ -13,7 +13,6 @@ import { deriveEffectiveStatus, type SessionState } from "./state.js";
 import { AgentLabel } from "./agentLabel.js";
 import { pickAgentName } from "./agentNames.js";
 import { isSessionAlive, isStale } from "./staleness.js";
-import { pickTerminalCommand } from "./terminal.js";
 
 // Each live session gets its own label with the same state machine the
 // single-session version had, minus the shared "standby" state: idle
@@ -38,9 +37,21 @@ const OVERFLOW_STYLE =
 // detail for every session is always in the popup menu.
 const MAX_INLINE_AGENTS = 3;
 
-// Console script installed by the usage/ pip package.
-const USAGE_COMMAND = "claudewatch-usage";
-const USAGE_INSTALL_HINT = "pipx install claudewatch-usage";
+// D-Bus service owned by the usage/ pip package (see usage/.../service.py).
+// The bus starts it on demand once `claudewatch-usage install-service` has
+// put its activation file in place.
+const USAGE_BUS_NAME = "io.github.yevhen_chernenko.ClaudeWatchUsage";
+const USAGE_OBJECT_PATH = "/io/github/yevhen_chernenko/ClaudeWatchUsage";
+const USAGE_INTERFACE = USAGE_BUS_NAME;
+const USAGE_INSTALL_HINT =
+  "pipx install --force claudewatch-usage && claudewatch-usage install-service";
+const USAGE_LABEL = "Show usage";
+const USAGE_HINT_TEXT =
+  "Usage service not installed. Click this message to copy the install commands to your clipboard.";
+const USAGE_HINT_COPIED_TEXT =
+  "Copied. Paste into a terminal, then click Show usage again.";
+// Generous enough to cover the bus activating the service from cold.
+const USAGE_CALL_TIMEOUT_MS = 10_000;
 
 // Every visual the panel can ever show, for the CLAUDEWATCH_DEV preview menu
 // (see ClaudeWatchIndicator's constructor) — one entry per AgentLabel UiState plus
@@ -108,6 +119,9 @@ export class ClaudeWatchIndicator {
   button: InstanceType<typeof PanelMenu.Button>;
 
   private readonly _uuid: string;
+  // Cancels an in-flight "Show usage" D-Bus call if the extension is
+  // disabled before it answers.
+  private readonly _cancellable = new Gio.Cancellable();
   private readonly _box: InstanceType<typeof St.BoxLayout>;
   private readonly _standbyLabel: InstanceType<typeof St.Label>;
   private readonly _overflowLabel: InstanceType<typeof St.Label>;
@@ -120,6 +134,9 @@ export class ClaudeWatchIndicator {
     typeof PopupMenu.PopupSwitchMenuItem
   >;
   private readonly _showUsageItem: InstanceType<typeof PopupMenu.PopupMenuItem>;
+  // Hidden until "Show usage" finds the D-Bus service missing; clicking it
+  // copies the install commands to the clipboard.
+  private readonly _usageHintItem: InstanceType<typeof PopupMenu.PopupMenuItem>;
   private readonly _raiseIssueItem: InstanceType<
     typeof PopupMenu.PopupMenuItem
   >;
@@ -183,14 +200,14 @@ export class ClaudeWatchIndicator {
     this._box.add_child(this._overflowLabel);
 
     // Fixed width so the menu doesn't reflow as row text changes length
-    // (e.g. a long "failed to launch terminal" error string).
+    // (e.g. the install hint or a long error string).
     this._menu.box.style = "width: 300px; min-width: 300px; max-width: 300px;";
 
     this._menu.addMenuItem(
       new PopupMenu.PopupSeparatorMenuItem("Claude Usage"),
     );
 
-    this._showUsageItem = new PopupMenu.PopupMenuItem("Show usage");
+    this._showUsageItem = new PopupMenu.PopupMenuItem(USAGE_LABEL);
     // Default activate() chains to super.activate(), which PopupMenu treats
     // as a close-triggering click; override so clicking never closes the
     // menu.
@@ -200,6 +217,20 @@ export class ClaudeWatchIndicator {
       line_wrap_mode: Pango.WrapMode.WORD_CHAR,
     });
     this._menu.addMenuItem(this._showUsageItem);
+
+    this._usageHintItem = new PopupMenu.PopupMenuItem(USAGE_HINT_TEXT);
+    this._usageHintItem.visible = false;
+    this._usageHintItem.activate = () => this._onUsageHintClicked();
+    this._usageHintItem.label.clutter_text.set({
+      line_wrap: true,
+      line_wrap_mode: Pango.WrapMode.WORD_CHAR,
+    });
+    this._menu.addMenuItem(this._usageHintItem);
+    // The hint is only relevant to the click that triggered it; don't show a
+    // stale one the next time the menu opens.
+    this._menu.connect("open-state-changed", (_menu, open: boolean) => {
+      if (!open) this._usageHintItem.visible = false;
+    });
 
     this._menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem("Settings"));
 
@@ -481,59 +512,75 @@ export class ClaudeWatchIndicator {
     global.display.get_sound_player().play_from_theme(soundName, text, null);
   }
 
-  // The usage view is a separate pip package (see usage/), not part of this
-  // extension's zip — extensions must not bundle scripts that need to be
-  // installed, and installing anything needs explicit user action. pip's
-  // --user/pipx scripts land in ~/.local/bin, which GNOME Shell's own PATH
-  // doesn't always include, so that directory is checked explicitly.
-  private _findUsageCommand(): string | null {
-    const onPath = GLib.find_program_in_path(USAGE_COMMAND);
-    if (onPath) return onPath;
-    const userBin = GLib.build_filenamev([
-      GLib.get_home_dir(),
-      ".local",
-      "bin",
-      USAGE_COMMAND,
-    ]);
-    return GLib.file_test(userBin, GLib.FileTest.IS_EXECUTABLE)
-      ? userBin
-      : null;
+  // Asks the claudewatch-usage D-Bus service (a separate pip package, see
+  // usage/ — extensions must not bundle scripts that need to be installed,
+  // and installing anything needs explicit user action) to open its terminal
+  // view: the opt-in rate-limit check (see
+  // SECURITY.md#opt-in-network-egress-the-rate-limit-check), read from a
+  // terminal since this is the only usage source in the menu. The extension
+  // spawns nothing itself; the service owns picking and launching the
+  // terminal. If the name isn't running and can't be bus-activated, the
+  // service simply isn't installed yet.
+  private _onShowUsageClicked(): void {
+    Gio.DBus.session.call(
+      USAGE_BUS_NAME,
+      USAGE_OBJECT_PATH,
+      USAGE_INTERFACE,
+      "Show",
+      null,
+      null,
+      Gio.DBusCallFlags.NONE,
+      USAGE_CALL_TIMEOUT_MS,
+      this._cancellable,
+      (connection, result) => {
+        try {
+          connection!.call_finish(result);
+          this._showUsageItem.label.set_text(USAGE_LABEL);
+          this._usageHintItem.visible = false;
+        } catch (e) {
+          if (
+            e instanceof GLib.Error &&
+            e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)
+          ) {
+            return;
+          }
+          if (this._isServiceMissing(e)) {
+            this._showUsageItem.label.set_text(USAGE_LABEL);
+            this._usageHintItem.label.set_text(USAGE_HINT_TEXT);
+            this._usageHintItem.visible = true;
+            return;
+          }
+          this._usageHintItem.visible = false;
+          this._showUsageItem.label.set_text(this._usageErrorLabel(e));
+        }
+      },
+    );
   }
 
-  // Opens a terminal running claudewatch-usage — the opt-in rate-limit check
-  // (see SECURITY.md#opt-in-network-egress-the-rate-limit-check), read from a
-  // terminal since this is the only usage source in the menu. There's no
-  // OS-level "default terminal" standard on Linux, so pickTerminalCommand()
-  // (lib/terminal.ts) is necessarily best-effort: $TERMINAL first, then a
-  // fixed list of common terminal emulators. Gio.Subprocess.new() can
-  // genuinely throw (e.g. exec failure), so the try/catch here is a real
-  // failure path, not defensive padding.
-  private _onShowUsageClicked(): void {
-    const usageCommand = this._findUsageCommand();
-    if (!usageCommand) {
-      this._showUsageItem.label.set_text(
-        `Show usage — not installed, run: ${USAGE_INSTALL_HINT}`,
-      );
-      return;
+  private _isServiceMissing(e: unknown): boolean {
+    if (!(e instanceof GLib.Error) || !Gio.DBusError.is_remote_error(e)) {
+      return false;
     }
-    const argv = pickTerminalCommand(
-      usageCommand,
-      GLib.getenv("TERMINAL"),
-      (name) => GLib.find_program_in_path(name),
+    const remote = Gio.DBusError.get_remote_error(e);
+    return (
+      remote === "org.freedesktop.DBus.Error.ServiceUnknown" ||
+      remote === "org.freedesktop.DBus.Error.NameHasNoOwner"
     );
-    if (!argv) {
-      this._showUsageItem.label.set_text(
-        "Show usage — no terminal emulator found on PATH",
-      );
-      return;
+  }
+
+  private _usageErrorLabel(e: unknown): string {
+    if (e instanceof GLib.Error && Gio.DBusError.is_remote_error(e)) {
+      Gio.DBusError.strip_remote_error(e);
     }
-    try {
-      Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
-    } catch (e) {
-      this._showUsageItem.label.set_text(
-        `Show usage — failed to launch terminal: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
+    return `${USAGE_LABEL} — ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  private _onUsageHintClicked(): void {
+    // Both selections: CLIPBOARD for Ctrl+V, PRIMARY for middle-click paste.
+    const clipboard = St.Clipboard.get_default();
+    clipboard.set_text(St.ClipboardType.CLIPBOARD, USAGE_INSTALL_HINT);
+    clipboard.set_text(St.ClipboardType.PRIMARY, USAGE_INSTALL_HINT);
+    this._usageHintItem.label.set_text(USAGE_HINT_COPIED_TEXT);
   }
 
   private _onExit(): void {
@@ -550,6 +597,7 @@ export class ClaudeWatchIndicator {
   // connected — destroying `button` (a widget) takes its child actors and
   // menu items with it.
   destroy(): void {
+    this._cancellable.cancel();
     this._clearPreview();
     for (const label of this._agents.values()) label.destroy();
     this._agents.clear();

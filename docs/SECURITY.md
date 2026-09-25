@@ -39,8 +39,10 @@ remote endpoint.
 
 ### Opt-in network egress: the rate-limit check
 
-"Show usage" (`lib/indicator.ts`, `_onShowUsageClicked`) opens a terminal
-running the separately installed `claudewatch-usage` pip package — the only way this project surfaces
+"Show usage" (`lib/indicator.ts`, `_onShowUsageClicked`) calls `Show()` on the
+`io.github.yevhen_chernenko.ClaudeWatchUsage` D-Bus service of the separately
+installed `claudewatch-usage` pip package, which opens a terminal running its
+usage view — the only way this project surfaces
 5-hour/7-day rate-limit utilization, since Anthropic doesn't expose it
 through any local file or documented CLI command. The extension itself
 (the reviewed TypeScript package, `lib/indicator.ts` included) makes zero
@@ -48,17 +50,20 @@ network calls of its own — there is no network-capable import anywhere
 under `src/extension/`. The actual `GET` to the dedicated `/api/oauth/usage`
 status endpoint (the same one the popular "Claude Code Usage Tracker" VS
 Code extension uses, confirmed by reading its bundled source) happens
-entirely inside that spawned, out-of-process script, on its own 120-second
+entirely inside that separate, out-of-process script, on its own 120-second
 refresh loop. It's not a Messages completion — no model gets invoked, so
 checking usage costs no API quota.
 
-This is also the only feature where the extension spawns a subprocess at
-all — see the "External scripts/binaries" guideline below for why that's
-constrained, not just disclosed here: the script it launches is bundled
-plain-text source (never a compiled/opaque binary), the terminal choice
-comes from `pickTerminalCommand()` (`lib/terminal.ts`) trying `$TERMINAL`
-then a fixed list of known terminal emulators — never a user-configurable
-command — and the spawned process needs no elevated privileges.
+The extension spawns no subprocess at all: it makes one fixed, argument-less
+D-Bus method call on the session bus (`Gio.DBus.session.call()`), and the
+service — a separate process the user installed — does the terminal launch.
+There, the terminal choice comes from `pick_terminal_command()`
+(`usage/src/claudewatch_usage/terminal.py`) trying `$TERMINAL` then a fixed
+list of known terminal emulators — never a caller-supplied command, since
+`Show()` takes no arguments — and nothing runs with elevated privileges.
+Any process of the same user on the session bus could call `Show()`, but the
+only effect is opening that one terminal view; the network request still
+needs the opt-in token file.
 
 - **Opt-in by construction, not a setting**: the check does nothing unless
   `~/.config/claudewatch/token` exists. The extension never creates, writes,
@@ -91,12 +96,14 @@ command — and the spawned process needs no elevated privileges.
 - **Token never touches any session state file or any other file the
   extension writes** — it is read from `TOKEN_PATH` and held only in memory
   for the life of one request.
-- **Only one fixed command is ever launched by the extension itself**: clicking "Show usage" is the only way `Gio.Subprocess` fires in
-  the whole extension; there is no menu-open or interval-based auto-launch.
-  The argv is always `<a terminal found on PATH> <fixed flag> <the path to
-  claudewatch-usage>` — never a user-supplied path or command, so this
-  can't be repurposed into running arbitrary commands via config. That
-  spawned script may in turn launch one other fixed, non-bundled binary —
+- **The extension itself launches nothing**: clicking "Show usage" is the
+  only thing that touches the service, via one fixed, argument-less D-Bus
+  call; there is no menu-open or interval-based auto-launch. The service's
+  terminal argv is always `<a terminal found on PATH> <fixed flag> <the
+  service's own Python> -m claudewatch_usage` — never a user-supplied path
+  or command, so this can't be repurposed into running arbitrary commands
+  via config or via the bus. The usage view may in turn launch one other
+  fixed, non-bundled binary —
   `claude auth status --json`, resolved off `PATH` like the terminal choice
   — but only for the credential auto-refresh described above, never with a
   user-configurable argv.
@@ -133,13 +140,11 @@ Re-check both before submission — guidelines evolve.
 - **External scripts/binaries**: "strongly discouraged... unless
   unavoidable." The hook handler already lives outside the reviewed package
   (Claude Code invokes it directly, not the extension), so this mainly
-  constrains what the _extension itself_ may spawn. "Show usage" is the
-  one deliberate, disclosed instance of the extension itself spawning
-  something (see "Opt-in network egress" above) — a dropdown button that
-  opens a terminal is unavoidably a subprocess spawn. It follows the rule
-  exactly: `Gio.Subprocess`, a bundled plain-text script rather than a
-  compiled binary, no elevated privileges. Nothing else in the extension
-  spawns anything.
+  constrains what the _extension itself_ may spawn. Nothing in the extension
+  spawns anything: "Show usage" talks to the separately installed
+  `claudewatch-usage` package over D-Bus (see "Opt-in network egress"
+  above) instead, as EGO review asked, and that package does its own
+  terminal launch.
 - **GSettings schema**: ID namespaced `org.gnome.shell.extensions.<uuid>`,
   path `/org/gnome/shell/extensions/<uuid>/`, `.gschema.xml` shipped and
   compiled correctly. Pin the extension UUID early — see the open question
@@ -217,14 +222,14 @@ Mitigations, concrete and ongoing (not a one-time pass before submission):
 - [x] No network calls anywhere in the extension itself — no
       network-capable import exists under `src/extension/`. The opt-in,
       user-triggered "Claude Usage" rate-limit check (see "Opt-in network
-      egress" above) happens entirely inside the spawned, out-of-process
+      egress" above) happens entirely inside the separate, out-of-process
       `claudewatch-usage` (its own pip package, installed by the user),
       not the reviewed package.
-- [x] No subprocess spawning except the opt-in, user-triggered "Show
-      usage" button — `Gio.Subprocess` is only imported/used in
-      `_onShowUsageClicked()` (`lib/indicator.ts`), spawns only a
-      terminal emulator plus the fixed `claudewatch-usage` command, never
-      a user-configurable command.
+- [x] No subprocess spawning in the extension — `Gio.Subprocess` and
+      friends are not used anywhere under `src/extension/`. The opt-in,
+      user-triggered "Show usage" button makes one fixed D-Bus call
+      (`_onShowUsageClicked()`, `lib/indicator.ts`) to the
+      `claudewatch-usage` service, which launches the terminal.
 - [x] No telemetry/analytics
 - [x] Hook handler has zero npm dependencies (reduces supply-chain surface
       to just Node's builtins) — `src/hooks/hook-handler.ts` only requires

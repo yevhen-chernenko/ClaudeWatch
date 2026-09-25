@@ -112,7 +112,9 @@ account-status endpoint, not a Messages completion, so checking costs no API
 quota. Opt-in only: it does nothing until you point it at a token yourself
 (see [SETUP.md, Step 5](docs/SETUP.md#step-5--optional-the-claude-usage-rate-limit-check)).
 The view is the separate `claudewatch-usage` pip package
-(`pipx install claudewatch-usage`), not part of the extension itself.
+(`pipx install --force claudewatch-usage && claudewatch-usage install-service`), not
+part of the extension itself; the extension asks it to open the terminal over
+D-Bus, so the extension never spawns a process.
 
 <p align="center">
 <img src="docs/assets/screenshots/usage-terminal.png" width="520" alt="The Show usage terminal view, with the ClaudeWatch ASCII banner at the top">

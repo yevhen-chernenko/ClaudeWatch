@@ -11,7 +11,7 @@ license = "GPL-2.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.9"
 authors = [{ name = "Yevhen Chernenko" }]
-dependencies = []
+dependencies = ["jeepney>=0.8"]
 classifiers = [
   "Environment :: Console",
   "Operating System :: POSIX :: Linux",

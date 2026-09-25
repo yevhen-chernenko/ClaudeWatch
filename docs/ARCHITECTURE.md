@@ -223,7 +223,7 @@ easily run this long between hook updates on its own.
   inline cap fold into a "+N more" chip; the "Agents are recovering ☕" label shows only
   when zero sessions are live.
 - Popup menu: a "Claude Usage" section (a single "Show usage" button that
-  opens the account-level rate-limit check in a terminal), a notification
+  asks the `claudewatch-usage` D-Bus service to open the account-level rate-limit check in a terminal), a notification
   toggle, and an "Exit" action.
 - `prefs.js`: GNOME 45+ preferences window (libadwaita), separate process
   from the shell — must not import `St`/`Clutter`/`Meta`/`Shell` here. Not

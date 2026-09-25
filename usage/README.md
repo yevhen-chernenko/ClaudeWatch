@@ -7,12 +7,23 @@ a live, auto-refreshing display of your Claude 5-hour and 7-day usage windows.
 ## Install
 
 ```sh
-pipx install claudewatch-usage
-# or: pip install --user claudewatch-usage
+pipx install --force claudewatch-usage
+# or: pip install --user --upgrade claudewatch-usage
 ```
 
-Both put a `claudewatch-usage` command in `~/.local/bin`. The extension looks
-there as well as on `PATH`.
+Both put a `claudewatch-usage` command in `~/.local/bin`. Then let the session
+bus start the D-Bus service the extension calls:
+
+```sh
+claudewatch-usage install-service
+```
+
+That writes one file,
+`~/.local/share/dbus-1/services/io.github.yevhen_chernenko.ClaudeWatchUsage.service`;
+`claudewatch-usage uninstall-service` removes it. The service
+(`io.github.yevhen_chernenko.ClaudeWatchUsage`, method `Show()`) opens a
+terminal running this view when the extension's **Show usage** item is
+clicked, and exits by itself after ten idle minutes.
 
 ## Use
 
@@ -25,5 +36,6 @@ ln -s ~/.claude/.credentials.json ~/.config/claudewatch/token
 claudewatch-usage
 ```
 
-Stdlib only, no third-party dependencies. The only network request is to
+The usage view itself is stdlib-only; the D-Bus service adds one pure-Python
+dependency, [jeepney](https://pypi.org/project/jeepney/). The only network request is to
 `https://api.anthropic.com/api/oauth/usage`, made with the token above.

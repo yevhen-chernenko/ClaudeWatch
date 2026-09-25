@@ -272,7 +272,9 @@ Click the indicator to open the menu.
   - **Show usage** button — needs a token file first; see
     [EXTENSION.md](EXTENSION.md#setting-up-the-claude-usage-token) for how
     to create `~/.config/claudewatch/token` (normally a symlink to
-    `~/.claude/.credentials.json`). Click it and confirm a terminal window
+    `~/.claude/.credentials.json`) and the `claudewatch-usage` service installed
+    (`pipx install --force claudewatch-usage && claudewatch-usage install-service`; until 0.2.0 is on PyPI, `pipx install --force ./usage` from the repo root instead — an already-installed 0.1.0 has no `install-service` command and silently opens the usage view instead).
+    Click it and confirm a terminal window
     titled "ClaudeWatch" opens showing the ASCII banner, the 5h/7d
     utilization and reset times (both a relative and absolute reset time),
     and a progress bar counting up to "next refresh in 120s" that ticks down
@@ -302,10 +304,19 @@ Click the indicator to open the menu.
     first, then edit its `expiresAt` (through the still-in-place symlink)
     into the past and confirm the terminal recovers on its own within one
     cycle with no error shown — restore the backup if it doesn't. To test
-    the no-terminal-found path, temporarily rename every terminal emulator
-    binary on `PATH` (or run in an environment without one) and confirm the
-    "Show usage" row's own label becomes an inline "no terminal emulator
-    found on PATH" error instead of the click silently doing nothing.
+    the no-terminal-found path, run `claudewatch-usage service` by hand in
+    an environment with no terminal emulator on `PATH` (e.g. `env -u
+    TERMINAL PATH=/nonexistent python3 -m claudewatch_usage service`) and
+    confirm the "Show usage" row's own label becomes an inline "No terminal
+    emulator found on PATH" error instead of the click silently doing
+    nothing. To test the not-installed path, run
+    `claudewatch-usage uninstall-service`, make sure no service is running,
+    and confirm a "Usage service not installed" row appears under "Show usage", and that clicking it copies the install commands to the clipboard (paste somewhere to check) and changes the row to "Copied…". Inspect the
+    interface with `gdbus introspect --session --dest
+    io.github.yevhen_chernenko.ClaudeWatchUsage --object-path
+    /io/github/yevhen_chernenko/ClaudeWatchUsage` while a service is up.
+    The Python side has stdlib `unittest` coverage for terminal picking:
+    `cd usage && PYTHONPATH=src python3 -m unittest discover -s tests`.
 - **Exit** — clicking it should remove the indicator from the panel
   immediately and it should not reappear on the next login (it's gone from
   `dconf read /org/gnome/shell/enabled-extensions`) until re-enabled via

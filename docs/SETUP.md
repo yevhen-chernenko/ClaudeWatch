@@ -153,8 +153,9 @@ mkdir -p ~/.config/claudewatch
 ln -s ~/.claude/.credentials.json ~/.config/claudewatch/token
 ```
 
-Then click "Show usage" in the popup menu — it opens a terminal running a
-fuller, auto-refreshing view of the check. Full details, including why
+Then click "Show usage" in the popup menu — it asks the `claudewatch-usage`
+D-Bus service to open a terminal running a fuller, auto-refreshing view of
+the check. Full details, including why
 the token must be this file specifically (not `claude setup-token` output)
 and what each error message means, are in
 [EXTENSION.md#setting-up-the-claude-usage-token](EXTENSION.md#setting-up-the-claude-usage-token).
@@ -164,15 +165,23 @@ the extension (EGO doesn't allow bundled scripts), so nothing is installed
 without you asking:
 
 ```sh
-pipx install claudewatch-usage
-# or: pip install --user claudewatch-usage
+pipx install --force claudewatch-usage
+# or: pip install --user --upgrade claudewatch-usage
+claudewatch-usage install-service
 ```
 
-It additionally needs **Python 3.9+** (stdlib only, already on most distros)
-and **a terminal emulator on `PATH`** (`gnome-terminal`/GNOME Console are
-already present on stock GNOME; set `$TERMINAL` if you use something else
-it doesn't already know about — see
-[EXTENSION.md](EXTENSION.md#popup-menu)).
+`install-service` writes one small file,
+`~/.local/share/dbus-1/services/io.github.yevhen_chernenko.ClaudeWatchUsage.service`,
+so the session bus can start the service the first time you click "Show
+usage" (`claudewatch-usage uninstall-service` removes it). Without it, the
+menu shows a "not installed" row; click it to copy the install commands.
+
+It additionally needs **Python 3.9+** (its only dependency, `jeepney`, is
+pure Python and pulled in automatically) and **a terminal emulator on
+`PATH`**. The service tries `$TERMINAL` first (if its environment has it),
+then `xdg-terminal-exec` (which follows your desktop's default terminal),
+Ptyxis, GNOME Terminal and a few other common ones — see
+[EXTENSION.md](EXTENSION.md#popup-menu).
 
 ## Troubleshooting
 

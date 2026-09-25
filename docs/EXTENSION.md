@@ -91,7 +91,6 @@ src/
     extension.ts
     lib/
       state.ts
-      terminal.ts
       staleness.ts
       agentNames.ts
       agentLabel.ts
@@ -104,7 +103,10 @@ usage/                # separate pip package (claudewatch-usage), NOT in the EGO
   pyproject.toml
   src/claudewatch_usage/
     cli.py
+    service.py
+    terminal.py
     ascii.txt
+  tests/
 dist/                 # build output (gitignored)
   extension/
     extension.js
@@ -125,20 +127,24 @@ dist/                 # build output (gitignored)
   a session that's no longer alive), and `resolveUiAction()`, the pure
   edge-detection function that decides which UI transition (if any) a given
   status change triggers for one session — reused by every live `AgentLabel`.
-- `lib/terminal.ts` — `pickTerminalCommand()`, the pure argv-resolution
-  logic behind the "Show usage" row: given `$TERMINAL` and an injected
-  PATH-lookup function, picks which terminal emulator to spawn and how.
 - `usage/` (top-level, not under `src/`, and not part of the EGO zip) — the
-  `claudewatch-usage` pip package: a stdlib-only console script that "Show
-  usage" launches; a self-contained account-level rate-limit check (token
-  resolution, the `/api/oauth/usage` request, and formatting all live in
-  `usage/src/claudewatch_usage/cli.py`) on its own 120-second refresh loop.
-  EGO's review guidelines don't allow extensions to bundle scripts that
-  need installing, so users install it themselves (`pipx install
-  claudewatch-usage`) — the extension only looks the command up on `PATH`
-  (and `~/.local/bin`, where pip/pipx put it) and shows the install hint
-  inline if it's missing. This is the extension's only usage source —
-  there's no TypeScript-side equivalent.
+  `claudewatch-usage` pip package: a self-contained account-level
+  rate-limit check (token resolution, the `/api/oauth/usage` request, and
+  formatting all live in `usage/src/claudewatch_usage/cli.py`) on its own
+  120-second refresh loop, plus a small D-Bus service
+  (`usage/src/claudewatch_usage/service.py`, on the session bus as
+  `io.github.yevhen_chernenko.ClaudeWatchUsage`) that "Show usage" calls.
+  The service's one method, `Show()`, opens a terminal (picked by
+  `terminal.py`) running the check — so the extension itself spawns
+  nothing. EGO's review guidelines don't allow extensions to bundle scripts
+  that need installing, so users install it themselves (`pipx install --force
+  claudewatch-usage`, then `claudewatch-usage install-service`, which
+  drops a D-Bus activation file into `~/.local/share/dbus-1/services/` so
+  the bus starts the service on demand) — the extension shows the install
+  hint inline if the bus name can't be activated. The only third-party
+  dependency, `jeepney` (pure-Python D-Bus), is confined to `service.py`.
+  This is the extension's only usage source — there's no TypeScript-side
+  equivalent.
 - `lib/staleness.ts` — the stale-status timeouts and the
   `isSessionAlive()`/`isStale()` checks fed into `deriveEffectiveStatus()`.
 - `lib/agentNames.ts` — the fixed agent-name list and `pickAgentName()`.
@@ -229,13 +235,13 @@ See each file's own imports for the up-to-date list; briefly, by module:
   timeout), `Main` (`Main.panel.addToStatusArea`), `Extension` (the
   `enable()`/`disable()` lifecycle base class).
 - `lib/indicator.ts` — `St`, `Clutter` (widget toolkit + the actor alignment
-  enum), `GLib` (timeouts, easing durations, spawning the terminal for
-  "Show usage"), `Gio` (async file reads, `Gio.Settings` for the Exit item,
-  the `/proc/<pid>` liveness check, `Gio.Subprocess` for "Show usage"), and
+  enum), `GLib` (timeouts, easing durations), `Gio` (async file reads,
+  `Gio.Settings` for the Exit item, the `/proc/<pid>` liveness check,
+  `Gio.DBus.session.call()` for "Show usage"), and
   `Main`/`PanelMenu`/`PopupMenu` (panel indicator + menu widgets). No
   network-capable import — the extension itself makes no network calls; the
   account-level rate-limit check happens entirely out-of-process in the
-  spawned `claudewatch-usage` command. See
+  `claudewatch-usage` command the D-Bus service opens. See
   [SECURITY.md](SECURITY.md#opt-in-network-egress-the-rate-limit-check).
 - `lib/state.ts` — `GLib` only, for XDG-respecting path construction
   (`get_user_state_dir()`).
@@ -292,8 +298,9 @@ bottom:
 
 - **"Claude Usage" section** — a labeled `PopupSeparatorMenuItem` heading a
   single button:
-  - **Show usage** (`_showUsageItem`, `PopupMenuItem`) — opens a terminal
-    running the `claudewatch-usage` command, an auto-refreshing (every 120s,
+  - **Show usage** (`_showUsageItem`, `PopupMenuItem`) — calls `Show()` on the
+    `claudewatch-usage` D-Bus service, which opens a terminal running an
+    auto-refreshing (every 120s,
     with a progress bar to the next refresh) view of the account-level 5h/7d
     rate-limit windows. This is the only usage source in the extension —
     there's no inline rate-limit row in the popup menu itself. The script
@@ -313,14 +320,21 @@ bottom:
     exact shape as best-effort, not a contract. There's no local file or
     documented CLI command that exposes this directly. Which terminal it
     opens is necessarily best-effort
-    (`pickTerminalCommand()`, `lib/terminal.ts`): `$TERMINAL` if set, else
-    the first of `gnome-terminal`/`kgx`/`konsole`/`xfce4-terminal`/`xterm`
-    found on `PATH`. If none is found, or `Gio.Subprocess` fails to launch
-    it — or `claudewatch-usage` isn't installed — this row's own label becomes
-    the inline error (with the `pipx install claudewatch-usage` hint in the
-    latter case) instead of the click silently doing nothing. The command
-    itself is stdlib-only Python (no third-party dependencies) and keeps running — independent of the extension — until
-    the terminal window is closed or the user hits Ctrl-C. See
+    (`pick_terminal_command()`, `usage/src/claudewatch_usage/terminal.py`,
+    run inside the service): `$TERMINAL` if set in the service's
+    environment, else the first of
+    `xdg-terminal-exec`/`ptyxis`/`gnome-terminal`/`kgx`/`konsole`/`xfce4-terminal`/`xterm` found on
+    `PATH`. If the service reports it found no terminal or couldn't launch
+    one, or the name isn't running and can't be bus-activated
+    (`org.freedesktop.DBus.Error.ServiceUnknown` — i.e. the package or its
+    `install-service` step is missing), this row's own label becomes the
+    inline error instead of the click silently doing nothing — except in
+    the latter case, where a hidden row (`_usageHintItem`) appears below it
+    saying the service isn't installed, and clicking it copies the install
+    commands to the clipboard; the call is cancelled if the extension is
+    disabled mid-flight. The terminal view keeps running — independent of
+    both the extension and the service — until the terminal window is
+    closed or the user hits Ctrl-C. See
     [SECURITY.md](SECURITY.md#opt-in-network-egress-the-rate-limit-check)
     for why this stays opt-in (gated on the token file existing) rather than
     unconditional.
@@ -376,8 +390,8 @@ the terminal reports "OAuth token still expired after an automatic refresh
 attempt — run claude to sign in again", meaning an interactive `claude`
 login is actually needed.
 
-Then click "Show usage" in the panel menu — it opens a terminal running
-`claudewatch-usage`. A missing or empty token file, or a failed
+Then click "Show usage" in the panel menu — it asks the D-Bus service to open a
+terminal running `claudewatch-usage`. A missing or empty token file, or a failed
 request, all resolve to an inline error/status line in that terminal
 instead of a silent failure. A successful check shows the current 5h/7d
 utilization and reset times, plus per-model 7d and extra-usage rows when

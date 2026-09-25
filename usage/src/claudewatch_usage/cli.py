@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Launched by ClaudeWatch's "Show usage" menu item (lib/indicator.ts) as the
-# `claudewatch-usage` console script — the extension's only usage source;
+# The `claudewatch-usage` console script — the extension's only usage source;
 # this module owns the opt-in token resolution, request, and formatting on
-# its own. Stdlib only, no third-party dependencies.
+# its own. The extension never launches it directly: its "Show usage" menu
+# item calls the D-Bus service in service.py, which opens a terminal running
+# this. The only third-party dependency (jeepney, for D-Bus) is confined to
+# service.py and imported lazily, so the terminal view itself is stdlib-only.
 
+import argparse
 import json
 import os
 import subprocess
@@ -319,7 +322,7 @@ def render(data, error, remaining):
     sys.stdout.flush()
 
 
-def main():
+def run_usage_view():
     data = None
     sys.stdout.write(SET_TITLE + ALT_SCREEN_ENTER + HIDE_CURSOR + "\x1b[2J")
     sys.stdout.flush()
@@ -345,6 +348,35 @@ def main():
         sys.stdout.flush()
     print("Stopped.")
     return 0
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="claudewatch-usage",
+        description="Live Claude Code rate-limit view. With no command, runs "
+        "the view in this terminal.",
+    )
+    commands = parser.add_subparsers(dest="command")
+    commands.add_parser(
+        "service",
+        help="run the D-Bus service the ClaudeWatch extension calls to open this view",
+    )
+    commands.add_parser(
+        "install-service",
+        help="let the session bus start the service on demand",
+    )
+    commands.add_parser("uninstall-service", help="undo install-service")
+    args = parser.parse_args(argv)
+
+    if args.command is None:
+        return run_usage_view()
+    from . import service
+
+    return {
+        "service": service.run_service,
+        "install-service": service.install_service,
+        "uninstall-service": service.uninstall_service,
+    }[args.command]()
 
 
 if __name__ == "__main__":
