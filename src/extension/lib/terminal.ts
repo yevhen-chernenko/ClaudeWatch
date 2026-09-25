@@ -8,13 +8,13 @@
 // deprecated `-e` in favor of `--`, the rest still use `-e`.
 interface TerminalSpec {
   name: string;
-  buildArgv: (binaryPath: string, scriptPath: string) => string[];
+  buildArgv: (binaryPath: string, command: string) => string[];
 }
 
-const GENERIC_ARGV = (binaryPath: string, scriptPath: string): string[] => [
+const GENERIC_ARGV = (binaryPath: string, command: string): string[] => [
   binaryPath,
   "-e",
-  scriptPath,
+  command,
 ];
 
 const KNOWN_TERMINALS: readonly TerminalSpec[] = [
@@ -28,10 +28,10 @@ const KNOWN_TERMINALS: readonly TerminalSpec[] = [
 // Pure so it's unit-testable without touching the real filesystem/PATH —
 // `findProgram` is `GLib.find_program_in_path` at the call site (indicator.ts),
 // injected here as a plain function. Returns the full argv to spawn the
-// script under a terminal, or null if no terminal emulator could be found on
+// command under a terminal, or null if no terminal emulator could be found on
 // PATH at all.
 export function pickTerminalCommand(
-  scriptPath: string,
+  command: string,
   envTerminal: string | null,
   findProgram: (name: string) => string | null,
 ): string[] | null {
@@ -45,7 +45,7 @@ export function pickTerminalCommand(
     if (!binaryPath) continue;
     const spec = KNOWN_TERMINALS.find((entry) => entry.name === name);
     const buildArgv = spec ? spec.buildArgv : GENERIC_ARGV;
-    return buildArgv(binaryPath, scriptPath);
+    return buildArgv(binaryPath, command);
   }
   return null;
 }

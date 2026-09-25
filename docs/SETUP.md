@@ -159,7 +159,16 @@ the token must be this file specifically (not `claude setup-token` output)
 and what each error message means, are in
 [EXTENSION.md#setting-up-the-claude-usage-token](EXTENSION.md#setting-up-the-claude-usage-token).
 
-It additionally needs **Python 3** (stdlib only, already on most distros)
+Install the usage view first — it ships as its own pip package, not inside
+the extension (EGO doesn't allow bundled scripts), so nothing is installed
+without you asking:
+
+```sh
+pipx install claudewatch-usage
+# or: pip install --user claudewatch-usage
+```
+
+It additionally needs **Python 3.9+** (stdlib only, already on most distros)
 and **a terminal emulator on `PATH`** (`gnome-terminal`/GNOME Console are
 already present on stock GNOME; set `$TERMINAL` if you use something else
 it doesn't already know about — see

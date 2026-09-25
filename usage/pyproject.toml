@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "claudewatch-usage"
+dynamic = ["version"]
+description = "Live Claude Code rate-limit view for the ClaudeWatch GNOME Shell extension"
+readme = "README.md"
+license = "GPL-2.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [{ name = "Yevhen Chernenko" }]
+dependencies = []
+classifiers = [
+  "Environment :: Console",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Homepage = "https://github.com/yevhen-chernenko/claudewatch"
+Issues = "https://github.com/yevhen-chernenko/claudewatch/issues"
+
+[project.scripts]
+claudewatch-usage = "claudewatch_usage.cli:main"
+
+[tool.hatch.version]
+path = "src/claudewatch_usage/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/claudewatch_usage"]

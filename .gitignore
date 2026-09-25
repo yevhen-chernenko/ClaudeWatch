@@ -23,3 +23,9 @@ dist/
 
 # EGO submission package (npm run pack)
 *.shell-extension.zip
+
+# Python build output for the usage/ pip package
+__pycache__/
+*.egg-info/
+usage/dist/
+usage/build/

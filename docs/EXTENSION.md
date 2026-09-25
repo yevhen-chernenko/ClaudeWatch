@@ -92,19 +92,23 @@ src/
     lib/
       state.ts
       terminal.ts
+      staleness.ts
+      agentNames.ts
+      agentLabel.ts
       indicator.ts
   hooks/
     hook-handler.ts
 extension/            # static assets only — copied into dist/extension/ as-is
   metadata.json
-  icons/
-  detailed-usage.py
+usage/                # separate pip package (claudewatch-usage), NOT in the EGO zip
+  pyproject.toml
+  src/claudewatch_usage/
+    cli.py
+    ascii.txt
 dist/                 # build output (gitignored)
   extension/
     extension.js
     metadata.json
-    icons/
-    detailed-usage.py
     lib/*.js
   hooks/
     hook-handler.js
@@ -124,15 +128,23 @@ dist/                 # build output (gitignored)
 - `lib/terminal.ts` — `pickTerminalCommand()`, the pure argv-resolution
   logic behind the "Show usage" row: given `$TERMINAL` and an injected
   PATH-lookup function, picks which terminal emulator to spawn and how.
-- `extension/detailed-usage.py` (top-level, not under `src/` — a static
-  asset like `metadata.json`, not TypeScript) — the stdlib-only script
-  "Show usage" launches; a self-contained account-level rate-limit check
-  (token resolution, the `/api/oauth/usage` request, and formatting all
-  live in this one script) on its own 120-second refresh loop. This is the
-  extension's only usage source — there's no TypeScript-side equivalent.
-- `lib/indicator.ts` — two classes: `AgentLabel` (one per live session —
-  owns its panel label widget and the pulse/notify/compacting-watch state
-  machine) and `ClaudeWatchIndicator` (owns the `PanelMenu.Button`, the
+- `usage/` (top-level, not under `src/`, and not part of the EGO zip) — the
+  `claudewatch-usage` pip package: a stdlib-only console script that "Show
+  usage" launches; a self-contained account-level rate-limit check (token
+  resolution, the `/api/oauth/usage` request, and formatting all live in
+  `usage/src/claudewatch_usage/cli.py`) on its own 120-second refresh loop.
+  EGO's review guidelines don't allow extensions to bundle scripts that
+  need installing, so users install it themselves (`pipx install
+  claudewatch-usage`) — the extension only looks the command up on `PATH`
+  (and `~/.local/bin`, where pip/pipx put it) and shows the install hint
+  inline if it's missing. This is the extension's only usage source —
+  there's no TypeScript-side equivalent.
+- `lib/staleness.ts` — the stale-status timeouts and the
+  `isSessionAlive()`/`isStale()` checks fed into `deriveEffectiveStatus()`.
+- `lib/agentNames.ts` — the fixed agent-name list and `pickAgentName()`.
+- `lib/agentLabel.ts` — `AgentLabel`: one per live session, owning its panel
+  label widget and the pulse/notify/compacting-watch state machine.
+- `lib/indicator.ts` — `ClaudeWatchIndicator` (owns the `PanelMenu.Button`, the
   label box, the popup menu shell, and the `Map` of live `AgentLabel`
   instances keyed by session id).
 - A gap in the community `@girs/gnome-shell` types (still "experimental" per
@@ -156,7 +168,7 @@ GNOME Shell loads exactly as it always has.
 
 ```sh
 npm install   # once
-npm run build       # compiles src/ -> dist/, copies metadata.json + icons/
+npm run build       # compiles src/ -> dist/, copies metadata.json, then adds the blank lines tsc drops (`format:dist`)
 npm run typecheck   # type-check only, no output — fast loop while editing
 ```
 
@@ -223,7 +235,7 @@ See each file's own imports for the up-to-date list; briefly, by module:
   `Main`/`PanelMenu`/`PopupMenu` (panel indicator + menu widgets). No
   network-capable import — the extension itself makes no network calls; the
   account-level rate-limit check happens entirely out-of-process in the
-  spawned `extension/detailed-usage.py`. See
+  spawned `claudewatch-usage` command. See
   [SECURITY.md](SECURITY.md#opt-in-network-egress-the-rate-limit-check).
 - `lib/state.ts` — `GLib` only, for XDG-respecting path construction
   (`get_user_state_dir()`).
@@ -281,7 +293,7 @@ bottom:
 - **"Claude Usage" section** — a labeled `PopupSeparatorMenuItem` heading a
   single button:
   - **Show usage** (`_showUsageItem`, `PopupMenuItem`) — opens a terminal
-    running `extension/detailed-usage.py`, an auto-refreshing (every 120s,
+    running the `claudewatch-usage` command, an auto-refreshing (every 120s,
     with a progress bar to the next refresh) view of the account-level 5h/7d
     rate-limit windows. This is the only usage source in the extension —
     there's no inline rate-limit row in the popup menu itself. The script
@@ -304,9 +316,10 @@ bottom:
     (`pickTerminalCommand()`, `lib/terminal.ts`): `$TERMINAL` if set, else
     the first of `gnome-terminal`/`kgx`/`konsole`/`xfce4-terminal`/`xterm`
     found on `PATH`. If none is found, or `Gio.Subprocess` fails to launch
-    it, this row's own label becomes the inline error instead of the click
-    silently doing nothing. The script itself is stdlib-only Python (no pip
-    dependencies) and keeps running — independent of the extension — until
+    it — or `claudewatch-usage` isn't installed — this row's own label becomes
+    the inline error (with the `pipx install claudewatch-usage` hint in the
+    latter case) instead of the click silently doing nothing. The command
+    itself is stdlib-only Python (no third-party dependencies) and keeps running — independent of the extension — until
     the terminal window is closed or the user hits Ctrl-C. See
     [SECURITY.md](SECURITY.md#opt-in-network-egress-the-rate-limit-check)
     for why this stays opt-in (gated on the token file existing) rather than
@@ -342,7 +355,7 @@ ln -s ~/.claude/.credentials.json ~/.config/claudewatch/token
 ```
 
 The token file may contain either credentials.json-format JSON (as with the
-symlink above — `resolve_token()` in `extension/detailed-usage.py` extracts
+symlink above — `resolve_token()` in `usage/src/claudewatch_usage/cli.py` extracts
 `claudeAiOauth.accessToken` from it) or a raw bearer token. The symlink is
 the form that works: `/api/oauth/usage` requires the `user:profile` scope,
 which only the interactive `claude` login credential carries — a token
@@ -364,7 +377,7 @@ attempt — run claude to sign in again", meaning an interactive `claude`
 login is actually needed.
 
 Then click "Show usage" in the panel menu — it opens a terminal running
-`extension/detailed-usage.py`. A missing or empty token file, or a failed
+`claudewatch-usage`. A missing or empty token file, or a failed
 request, all resolve to an inline error/status line in that terminal
 instead of a silent failure. A successful check shows the current 5h/7d
 utilization and reset times, plus per-model 7d and extra-usage rows when

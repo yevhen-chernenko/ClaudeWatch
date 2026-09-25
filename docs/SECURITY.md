@@ -40,7 +40,7 @@ remote endpoint.
 ### Opt-in network egress: the rate-limit check
 
 "Show usage" (`lib/indicator.ts`, `_onShowUsageClicked`) opens a terminal
-running `extension/detailed-usage.py` — the only way this project surfaces
+running the separately installed `claudewatch-usage` pip package — the only way this project surfaces
 5-hour/7-day rate-limit utilization, since Anthropic doesn't expose it
 through any local file or documented CLI command. The extension itself
 (the reviewed TypeScript package, `lib/indicator.ts` included) makes zero
@@ -91,11 +91,10 @@ command — and the spawned process needs no elevated privileges.
 - **Token never touches any session state file or any other file the
   extension writes** — it is read from `TOKEN_PATH` and held only in memory
   for the life of one request.
-- **Only one fixed, repo-bundled script is ever launched by the extension
-  itself**: clicking "Show usage" is the only way `Gio.Subprocess` fires in
+- **Only one fixed command is ever launched by the extension itself**: clicking "Show usage" is the only way `Gio.Subprocess` fires in
   the whole extension; there is no menu-open or interval-based auto-launch.
   The argv is always `<a terminal found on PATH> <fixed flag> <the path to
-  detailed-usage.py>` — never a user-supplied path or command, so this
+  claudewatch-usage>` — never a user-supplied path or command, so this
   can't be repurposed into running arbitrary commands via config. That
   spawned script may in turn launch one other fixed, non-bundled binary —
   `claude auth status --json`, resolved off `PATH` like the terminal choice
@@ -219,11 +218,12 @@ Mitigations, concrete and ongoing (not a one-time pass before submission):
       network-capable import exists under `src/extension/`. The opt-in,
       user-triggered "Claude Usage" rate-limit check (see "Opt-in network
       egress" above) happens entirely inside the spawned, out-of-process
-      `extension/detailed-usage.py`, not the reviewed package.
+      `claudewatch-usage` (its own pip package, installed by the user),
+      not the reviewed package.
 - [x] No subprocess spawning except the opt-in, user-triggered "Show
       usage" button — `Gio.Subprocess` is only imported/used in
       `_onShowUsageClicked()` (`lib/indicator.ts`), spawns only a
-      terminal emulator plus the fixed, bundled `detailed-usage.py`, never
+      terminal emulator plus the fixed `claudewatch-usage` command, never
       a user-configurable command.
 - [x] No telemetry/analytics
 - [x] Hook handler has zero npm dependencies (reduces supply-chain surface

@@ -68,6 +68,18 @@ export default class ClaudeWatchExtension extends Extension {
     this._refresh();
   }
 
+  disable(): void {
+    if (this._monitor) this._monitor.disconnect(this._monitorId);
+    this._monitor = null;
+    this._sessionsDir = null;
+    if (this._periodicRefreshId) {
+      GLib.source_remove(this._periodicRefreshId);
+      this._periodicRefreshId = null;
+    }
+    this._indicator?.destroy();
+    this._indicator = null;
+  }
+
   private _refresh(): void {
     const generation = ++this._refreshGeneration;
     this._sessionsDir?.enumerate_children_async(
@@ -166,17 +178,5 @@ export default class ClaudeWatchExtension extends Extension {
       // common case, and a real failure just leaves the file for the next
       // periodic refresh to retry against.
     });
-  }
-
-  disable(): void {
-    if (this._monitor) this._monitor.disconnect(this._monitorId);
-    this._monitor = null;
-    this._sessionsDir = null;
-    if (this._periodicRefreshId) {
-      GLib.source_remove(this._periodicRefreshId);
-      this._periodicRefreshId = null;
-    }
-    this._indicator?.destroy();
-    this._indicator = null;
   }
 }

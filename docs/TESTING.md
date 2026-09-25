@@ -18,7 +18,7 @@ everything else: the GJS-dependent
 glue in `extension.ts`, `lib/indicator.ts`, and `hooks/hook-handler.ts`'s
 stdin/fs wrapper, none of which can run under Node. This is what to run by
 hand after touching `src/extension/extension.ts`, anything under
-`src/extension/lib/`, `extension/detailed-usage.py`, or
+`src/extension/lib/`, `usage/`, or
 `src/hooks/hook-handler.ts`. See
 [EXTENSION.md](EXTENSION.md#file-layout) for what lives in each file, and
 [EXTENSION.md#building](EXTENSION.md#building) for the `npm run build` step
@@ -44,7 +44,7 @@ CLAUDEWATCH_DEV=1
 
 (already gitignored, same as any other local-only config) and run
 `npm run build` — `copy-assets.mjs` copies it into `dist/extension/.env`
-next to `detailed-usage.py`/`ascii.txt`/etc., and `indicator.ts`'s
+next to `extension.js`, and `indicator.ts`'s
 `readDevModeFlag()` reads it back from there at `enable()` time. A process
 env var doesn't work for this: GNOME Shell inherits its environment from the
 display manager / login session, not from whatever terminal `npm run build`

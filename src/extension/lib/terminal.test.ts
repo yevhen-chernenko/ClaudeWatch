@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { pickTerminalCommand } from "./terminal";
 
-const SCRIPT = "/opt/claudewatch/detailed-usage.py";
+const SCRIPT = "/home/user/.local/bin/claudewatch-usage";
 
 function findAmong(installed: string[]): (name: string) => string | null {
   return (name) => (installed.includes(name) ? `/usr/bin/${name}` : null);

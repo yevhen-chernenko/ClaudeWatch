@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Launched by ClaudeWatch's "Show usage" menu item (lib/indicator.ts) — the
-# extension's only usage source; this script owns the opt-in token
-# resolution, request, and formatting on its own. Stdlib only, no pip
-# dependencies.
+# Launched by ClaudeWatch's "Show usage" menu item (lib/indicator.ts) as the
+# `claudewatch-usage` console script — the extension's only usage source;
+# this module owns the opt-in token resolution, request, and formatting on
+# its own. Stdlib only, no third-party dependencies.
 
 import json
 import os
@@ -14,6 +13,7 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from importlib import resources
 from pathlib import Path
 
 TOKEN_PATH = (
@@ -50,12 +50,15 @@ SHOW_CURSOR = "\x1b[?25h"
 WINDOW_TITLE = "ClaudeWatch"
 SET_TITLE = f"\x1b]0;{WINDOW_TITLE}\x07"
 
-LOGO_PATH = Path(__file__).resolve().parent / "ascii.txt"
-
 
 def _load_logo():
     try:
-        return LOGO_PATH.read_text().splitlines()
+        return (
+            resources.files(__package__)
+            .joinpath("ascii.txt")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
     except OSError:
         return ["ClaudeWatch"]
 

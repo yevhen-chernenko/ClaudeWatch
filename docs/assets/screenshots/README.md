@@ -19,7 +19,7 @@ Files the README expects here, exact names:
 | `consulting.png` | A session in the **consulting** state — olive, pulsing |
 | `complete.png` | The green "done" flash right before a label retires |
 | `multi-agent.png` | Several concurrent sessions — inline labels plus the "+N more" overflow chip |
-| `usage-terminal.png` | The "Show usage" terminal view (`extension/detailed-usage.py`), including its ASCII banner |
+| `usage-terminal.png` | The "Show usage" terminal view (`claudewatch-usage`, `usage/`), including its ASCII banner |
 
 ## How to capture each one
 
