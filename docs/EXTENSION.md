@@ -6,8 +6,10 @@ context.
 
 ## What it does
 
-Shows a panel indicator with one label per live Claude Code session, read
-from per-session JSON state files written by the compiled
+Shows a panel indicator with one label (and one status) per live Claude Code
+agent, plus a "Show usage" entry that opens the rate-limit view in a
+terminal. Session state is read from per-session JSON files written by the
+compiled
 [hooks/hook-handler.js](../src/hooks/hook-handler.ts):
 
 ```text

@@ -69,6 +69,10 @@ than duplicated here.
 
 ## Phase 2 — Beta
 
+Status: the extension is live on EGO
+([listing](https://extensions.gnome.org/extension/10939/claudewatch-for-gnome/)),
+so this phase has started.
+
 Goal: published and installable from EGO, but openly framed as Early Access —
 bugs are still expected, and the point of this phase is to surface them
 against real users and real machines rather than just your own daily driving.

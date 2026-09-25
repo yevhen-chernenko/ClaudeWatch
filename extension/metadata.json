@@ -1,7 +1,7 @@
 {
   "uuid": "claudewatch@yevhen-chernenko.github.io",
   "name": "ClaudeWatch for GNOME",
-  "description": "Live Claude Code activity in the top panel.",
+  "description": "Live status for every running Claude Code agent in the top panel, plus a usage view in the terminal.",
   "shell-version": ["46", "50"],
   "url": "https://github.com/yevhen-chernenko/claudewatch"
 }

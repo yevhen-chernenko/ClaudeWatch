@@ -2,10 +2,11 @@
 
 # ClaudeWatch
 
-**Live Claude Code activity, right in your GNOME top panel.**
+**Live Claude Code activity in your GNOME top panel and terminal: every running agent gets its own status, not just usage stats.**
 
 [![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
 ![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)
+[![Get it on GNOME Extensions](https://img.shields.io/badge/GNOME%20Extensions-live-4A86CF.svg)](https://extensions.gnome.org/extension/10939/claudewatch-for-gnome/)
 ![GNOME Shell 46-50](https://img.shields.io/badge/GNOME%20Shell-46--50-4A86CF.svg)
 ![Tested on Ubuntu 24.04 / 26.04](https://img.shields.io/badge/tested%20on-Ubuntu%2024.04%20%2F%2026.04-E95420.svg)
 
@@ -24,7 +25,7 @@
 - [What it does](#what-it-does)
 - [Panel states](#panel-states)
 - [Claude Usage (the terminal rate-limit view)](#claude-usage-the-terminal-rate-limit-view)
-- [Status: alpha, pending EGO review](#status-alpha-pending-ego-review)
+- [Status: alpha](#status-alpha)
 - [Installation](#installation)
 - [Development](#development)
 - [Docs](#docs)
@@ -33,19 +34,23 @@
 ## What it does
 
 ClaudeWatch is a GNOME Shell extension that turns Claude Code's hook events
-into a live panel indicator: one label per running Claude Code session,
-updated in real time as it works, waits on you, compacts, or finishes. No
-more alt-tabbing to a terminal just to check whether an agent is still going
-or stuck on a permission prompt.
+into a live indicator in the top panel, plus a usage view in the terminal.
+It's not just stats: every running Claude Code agent gets its own labelled
+representation in the panel, with a status of its own that updates in real
+time as it works, waits on you, compacts, or finishes. No more alt-tabbing
+to a terminal just to check whether an agent is still going or stuck on a
+permission prompt. The terminal view adds your 5-hour and 7-day usage
+limits on top.
 
-- **One label per session** — concurrent sessions are never collapsed into a
-  single aggregate icon; a session waiting on you always stays visible.
+- **One label per agent** — each running session gets its own panel label and
+  its own status; concurrent sessions are never collapsed into a single
+  aggregate icon, so a session waiting on you always stays visible.
 - **Six-state lifecycle** — running, waiting, compacting, consulting,
   complete, standby. See [Panel states](#panel-states) below.
 - **Works everywhere Claude Code runs locally** — the CLI, the official VS
   Code extension, and Claude Desktop's Code tab.
-- **Optional Claude Usage view** — a live, auto-refreshing 5h/7d rate-limit
-  terminal view. Opt-in and off by default.
+- **Optional Claude Usage terminal view** — a live, auto-refreshing 5h/7d
+  rate-limit view. Opt-in and off by default.
 - **Local-only** — no telemetry, no network calls, except the one opt-in
   usage check above, which you have to enable yourself.
 
@@ -120,16 +125,15 @@ D-Bus, so the extension never spawns a process.
 <img src="docs/assets/screenshots/usage-terminal.png" width="520" alt="The Show usage terminal view, with the ClaudeWatch ASCII banner at the top">
 </p>
 
-## Status: alpha, pending EGO review
+## Status: alpha
 
-**ClaudeWatch is alpha software.** It's been submitted to
-[GNOME Extensions (EGO)](https://extensions.gnome.org/) and is awaiting
-manual review — not yet installable from there. No installer or release
-tarball either way. There's also no setup wizard yet (see
-[docs/ROADMAP.md](docs/ROADMAP.md)); the [Installation](#installation)
-section below is what that wizard would eventually automate, done entirely
-by hand for now. If you want to run it today, you need to clone this repo
-and build it yourself.
+**ClaudeWatch is alpha software**, but it's live on
+[GNOME Extensions (EGO)](https://extensions.gnome.org/extension/10939/claudewatch-for-gnome/)
+— it passed review and you can install it from there. Two parts still have
+no installer: the Claude Code hooks are merged into `~/.claude/settings.json`
+by hand, and there's no setup wizard yet (see
+[docs/ROADMAP.md](docs/ROADMAP.md)). The [Installation](#installation)
+section below covers both by hand.
 
 ## Installation
 
@@ -146,21 +150,43 @@ and build it yourself.
 
 ### Quick start
 
+**1. Install the extension** — either way works:
+
+- **From GNOME Extensions (recommended):** open
+  [ClaudeWatch for GNOME](https://extensions.gnome.org/extension/10939/claudewatch-for-gnome/)
+  and flip the toggle (needs the browser connector or the Extension Manager
+  app), or run `gnome-extensions enable claudewatch@yevhen-chernenko.github.io`
+  once it's installed.
+- **From source** (for development, or to run unreleased changes):
+
+  ```sh
+  git clone git@github.com:yevhen-chernenko/claudewatch.git
+  cd claudewatch
+  npm install
+  npm run build
+  ln -s "$PWD/dist/extension" ~/.local/share/gnome-shell/extensions/claudewatch@yevhen-chernenko.github.io
+  gnome-extensions enable claudewatch@yevhen-chernenko.github.io
+  ```
+
+**2. Build the hook handler.** The hook handler is not part of the EGO
+package (EGO doesn't allow bundled scripts), so even with the extension
+installed from EGO you still need a clone and a build for
+`dist/hooks/hook-handler.js`. Skip this if you took the from-source route
+above.
+
 ```sh
 git clone git@github.com:yevhen-chernenko/claudewatch.git
 cd claudewatch
 npm install
 npm run build
-ln -s "$PWD/dist/extension" ~/.local/share/gnome-shell/extensions/claudewatch@yevhen-chernenko.github.io
-gnome-extensions enable claudewatch@yevhen-chernenko.github.io
 ```
 
-Reload the shell so it picks up the new symlink (X11: Alt+F2, `r`, Enter;
+Reload the shell so it picks up the extension (X11: Alt+F2, `r`, Enter;
 Wayland: log out and back in). You should see a single "Agents are
 recovering ☕" label appear in the top panel — that's the extension running
 with zero live sessions, not a sign anything is broken.
 
-The panel stays on that label until Claude Code's hooks are wired up to the
+**3.** The panel stays on that label until Claude Code's hooks are wired up to the
 built `dist/hooks/hook-handler.js` — a manual merge into
 `~/.claude/settings.json`, since there's no installer yet. That step (plus
 verification and the optional Claude Usage rate-limit check) is genuinely

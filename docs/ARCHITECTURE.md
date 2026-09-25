@@ -22,7 +22,8 @@ are versioned, installed, and reviewed separately.
    same as before.
 2. **GNOME Shell extension** — GJS, ESM module format (GNOME 45+), the only
    piece submitted to extensions.gnome.org. Reads local state, renders the
-   panel indicator and popup menu, owns preferences. Also written in
+   panel indicator (one status label per agent) and popup menu (including
+   the entry that opens the terminal usage view), owns preferences. Also written in
    TypeScript (`src/extension/`) and compiled to plain JS (`dist/extension/`)
    before install/packaging — nothing for GNOME Shell or EGO's review to
    build.

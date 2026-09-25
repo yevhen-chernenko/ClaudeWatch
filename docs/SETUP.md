@@ -1,6 +1,8 @@
 # First-time setup
 
-Status: manual, start-to-finish. There is no installer yet — see
+Status: manual, start-to-finish. The extension itself is
+[live on GNOME Extensions](https://extensions.gnome.org/extension/10939/claudewatch-for-gnome/),
+but there is no installer for the rest yet — see
 [ARCHITECTURE.md#install-flow](ARCHITECTURE.md#install-flow) for the
 automated flow this will eventually become. Until that lands, every step
 below is something a user (including you, today) has to do by hand, and
@@ -20,6 +22,10 @@ nothing here happens automatically just from enabling the GNOME extension.
 
 ## Step 1 — Build
 
+> Installing the extension from EGO? You still need this step: the hook
+> handler is not part of the EGO package, so `dist/hooks/hook-handler.js`
+> only exists once you've built it. You can skip Step 2's symlink, though.
+
 ```sh
 git clone <this repo>
 cd claudewatch
@@ -34,6 +40,13 @@ Note the absolute path to `dist/hooks/hook-handler.js` on your machine —
 Step 3 needs it verbatim.
 
 ## Step 2 — Install the GNOME extension
+
+**From GNOME Extensions (recommended):** install
+[ClaudeWatch for GNOME](https://extensions.gnome.org/extension/10939/claudewatch-for-gnome/)
+from the site (browser connector) or the Extension Manager app, then
+`gnome-extensions enable claudewatch@yevhen-chernenko.github.io`.
+
+**From source** (development, or unreleased changes):
 
 ```sh
 ln -s "$PWD/dist/extension" ~/.local/share/gnome-shell/extensions/claudewatch@yevhen-chernenko.github.io
